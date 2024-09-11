@@ -1,0 +1,306 @@
+#%%
+import pickle
+import numpy as np
+
+#%%
+hmsA_ParamDict = {
+    'hmsVersion':'A',
+    'FlCollimator': 400,
+    'FlPrimeCamera': 443.401,
+    'SlitLengthmm': 55.29,
+    'SlitLengthdeg': np.rad2deg(np.arctan(55.29/400)),
+    'sigma': 10125.5569,
+    'relSlitPositionmm': 21.43,
+    'SlitA2FarEdgemm': 63.35,
+    'SlitA2CloseEdgemm': 13.83,
+    'MosaicWidthmm':52.50,
+    'MosaicHeightmm': 55.19,
+    'MosaicWindowWidthmm':49.52,
+    'MosaicWindowHeightmm':50.05,
+    'MosaicFilters': [['4278','6300','5577','7774'], 
+                      ['6563','4861']]
+}
+
+# Save dictionary to a file
+with open('hmsA_Params.pkl', 'wb') as file:
+    pickle.dump(hmsA_ParamDict, file)
+# %%
+hmsA_wlParamDict = {
+    '5577':{'wl':557.7, 
+            'color':'green',
+            'SlitNum':2, 
+            'DiffractionOrder': 33,
+            'PanelLetter':'b',
+            'PanelWindowWidthmm':10.10 ,
+            'PanelWidthmm':10.10,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+2.9,
+            },
+    '6300':{'wl':630.0, 
+            'color':'Red', 
+            'SlitNum':2, 
+            'DiffractionOrder': 29,
+            'PanelLetter':'c',
+            'PanelWindowWidthmm':9.70 ,
+            'PanelWidthmm':9.70,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+2.9,
+            },
+    '7774':{'wl':777.4, 
+            'color':'plum',
+            'SlitNum':1, 
+            'DiffractionOrder': 24,
+            'PanelLetter':'a',
+            'PanelWindowWidthmm':12.22 ,
+            'PanelWidthmm':12.22,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+2.9
+            },
+    '4278':{'wl':427.8, 
+            'color':'blue', 
+            'SlitNum':1, 
+            'DiffractionOrder': 43,
+            'PanelLetter':'d',
+            'PanelWindowWidthmm':17.50 ,
+            'PanelWidthmm':17.50+ 2.68,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+2.9,
+            },
+    '6563':{'wl':656.3, 
+            'color':'Darkred',
+            'SlitNum':3,
+            'DiffractionOrder': 28, 
+            'PanelLetter':'f',
+            'PanelWindowWidthmm':18.83,
+            'PanelWidthmm':18.83+ 2.68,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+1.94,
+            },
+    '4861':{'wl':486.1, 
+            'color':'cyan', 
+            'SlitNum':4, 
+            'DiffractionOrder': 38,
+            'PanelLetter':'e',
+            'PanelWindowWidthmm':30.69 ,
+            'PanelWidthmm':30.69,
+            'PanelWindowHeightmm':25.02,
+            'PanelHeightmm':25.02+1.94,
+            },
+}
+# Save dictionary to a file
+with open('hmsA_wlParams.pkl', 'wb') as file:
+    pickle.dump(hmsA_wlParamDict, file)
+
+# %%
+hmsB_ParamDict = {
+    'hmsVersion':'B', #hitmis stayed here for solar eclipse
+    'FlCollimator': 400, #focal length of collimator, mm.
+    'FlPrimeCamera': 365.891, #focal length of collimator (grating -> mosaic), mm.
+    'SlitLengthmm': 55.30, #slight length, mm.
+    'SlitLengthdeg': np.rad2deg(np.arctan(55.30/400)), # slit length = slitlen/focallength,Deg.
+    'sigma': 10245.208387, #measured grating density
+    'relSlitPositionmm': 21.07, #Distance between the two slits, mm.
+    'SlitA2FarEdgemm': 69.16, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
+    'SlitA2CloseEdgemm': 13.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
+    'MosaicWidthmm':52.05,
+    'MosaicHeightmm': 53.38,
+    #Blue tap facing away from grating, if we are looking from grating to mosaic
+    'MosaicWindowWidthmm':49.52, #The window that the camera images, mm.
+    'MosaicWindowHeightmm':50.05, #the window height that the camera images, mm.
+    'MosaicFilters': [['4278','7774','6300','5577'],  #top panel from L -> R
+                      ['4861','6563']] #bottom panel from L -> R
+    }
+
+# Save dictionary to a file
+with open('hmsB_Params.pkl', 'wb') as file:
+    pickle.dump(hmsB_ParamDict, file)
+
+# %%
+hmsB_wlParamDict = {
+    '5577':{'wl':557.7, 
+            'color':'green',
+            'SlitNum':2, 
+            'DiffractionOrder': 33,
+            'PanelLetter':'a',
+            'PanelWindowWidthmm':18.18 +1.44,
+            'PanelWidthmm':18.18 +1.44,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '6300':{'wl':630.0, 
+            'color':'Red', 
+            'SlitNum':2, 
+            'DiffractionOrder': 29,
+            'PanelLetter':'b',
+            'PanelWindowWidthmm':7.09+1.44 ,
+            'PanelWidthmm':7.09+1.44,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            }
+            ,
+    '7774':{'wl':777.4, 
+            'color':'plum',
+            'SlitNum':2, 
+            'DiffractionOrder': 24,
+            'PanelLetter':'c',
+            'PanelWindowWidthmm':8.39+1.92,
+            'PanelWidthmm':8.39+1.92,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '4278':{'wl':427.8, 
+            'color':'blue', 
+            'SlitNum':1,
+            'DiffractionOrder': 43,
+            'PanelLetter':'d',
+            'PanelWindowWidthmm':12.89, #measure the window to + or -
+            'PanelWidthmm':12.89,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '6563':{'wl':656.3, 
+            'color':'Darkred',
+            'SlitNum':3,
+            'DiffractionOrder': 28,
+            'PanelLetter':'e',
+            'PanelWindowWidthmm':28.89 + 1.96 , 
+            'PanelWidthmm':28.89 + 1.96,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '4861':{'wl':486.1, 
+            'color':'cyan', 
+            'SlitNum':4, 
+            'DiffractionOrder': 38,
+            'PanelLetter':'f',
+            'PanelWindowWidthmm':20.61 , #measure the window to + or -
+            'PanelWidthmm':20.61,
+            'PanelWindowHeightmm':26.69, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            }
+}
+# Save dictionary to a file
+with open('hmsB_wlParams.pkl', 'wb') as file:
+    pickle.dump(hmsB_wlParamDict, file)
+# %%
+def load_pickle_file(fn:str):
+    with open(fn, 'rb') as file:
+        dat = pickle.load(file)
+    return dat
+
+checkdict = load_pickle_file('hmsA_Params.pkl')
+# %%
+checkdict['FlCollimator']
+
+# %%
+hmsBOrigin_ParamDict = {
+    'hmsVersion':'BO', #hitmis stayed here for solar eclipse
+    'FlCollimator': 400, #focal length of collimator, mm.
+    'FlPrimeCamera': 365.891, #focal length of collimator (grating -> mosaic), mm.
+    'SlitLengthmm': 55.30, #slight length, mm.
+    'SlitLengthdeg': np.rad2deg(np.arctan(55.30/400)), # slit length = slitlen/focallength,Deg.
+    'sigma': 10245.208387, #measured grating density
+    'relSlitPositionmm': 21.07, #Distance between the two slits, mm.
+    'SlitA2FarEdgemm': 69.16, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
+    'SlitA2CloseEdgemm': 13.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
+    'MosaicWidthmm':52.05,
+    'MosaicHeightmm': 53.38,
+    #Blue tap facing away from grating, if we are looking from grating to mosaic
+    'MosaicWindowWidthmm':49.52, #The window that the camera images, mm.
+    'MosaicWindowHeightmm':50.05, #the window height that the camera images, mm.
+    'MosaicFilters': [['7774', '7841', '4278', '6300', '5577'], #top panel from L -> R
+                      ['6563','4861']] #,'6544']]  #bottom panel from L -> R
+    }
+
+# Save dictionary to a file
+with open('hmsBOrigin_Params.pkl', 'wb') as file:
+    pickle.dump(hmsBOrigin_ParamDict, file)
+# %%
+hmsBOrigin_wlParamDict = {
+    '5577':{'wl':557.7, 
+            'color':'green',
+            'SlitNum':2, 
+            'DiffractionOrder': 33,
+            'PanelLetter':'a',
+            'PanelWindowWidthmm':14.75,
+            'PanelWidthmm':14.75,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '6300':{'wl':630.0, 
+            'color':'Red', 
+            'SlitNum':2, 
+            'DiffractionOrder': 29,
+            'PanelLetter':'b',
+            'PanelWindowWidthmm': 6.5,  #1.44 ,
+            'PanelWidthmm':6.5,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '4278':{'wl':427.8, 
+            'color':'blue', 
+            'SlitNum':1,
+            'DiffractionOrder': 43,
+            'PanelLetter':'d',
+            'PanelWindowWidthmm':4.5, #measure the window to + or -
+            'PanelWidthmm':4.5,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '7841':{'wl':784.1, 
+            'color':'hotpink', 
+            'SlitNum':2,
+            'DiffractionOrder': 23,
+            'PanelLetter':'d',
+            'PanelWindowWidthmm':16, #measure the window to + or -
+            'PanelWidthmm':16,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+        
+    '7774':{'wl':777.4, 
+            'color':'plum',
+            'SlitNum':2, 
+            'DiffractionOrder': 23,
+            'PanelLetter':'c',
+            'PanelWindowWidthmm':10.3 -2.53,
+            'PanelWidthmm':10.3,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '4861':{'wl':486.1, 
+            'color':'cyan', 
+            'SlitNum':4, 
+            'DiffractionOrder': 38,
+            'PanelLetter':'f',
+            'PanelWindowWidthmm':21 , #measure the window to + or -
+            'PanelWidthmm':21,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+    '6563':{'wl':656.3, 
+            'color':'Darkred',
+            'SlitNum':3,
+            'DiffractionOrder': 28,
+            'PanelLetter':'e',
+            'PanelWindowWidthmm':29.3 - 2.53 , 
+            'PanelWidthmm':31.05,
+            'PanelWindowHeightmm':25.025, #measure the window to + or -
+            'PanelHeightmm':26.69,
+            },
+#     '6544':{'wl':654.4, 
+#             'color':'darkorange', 
+#             'SlitNum':3, 
+#             'DiffractionOrder': 28,
+#             'PanelLetter':'f',
+#             'PanelWindowWidthmm':29.3 , #measure the window to + or -
+#             'PanelWidthmm':29.3,
+#             'PanelWindowHeightmm':26.69, #measure the window to + or -
+#             'PanelHeightmm':26.69,
+#             }
+    
+}
+# Save dictionary to a file
+with open('hmsBOrigin_wlParams.pkl', 'wb') as file:
+    pickle.dump(hmsBOrigin_wlParamDict, file)
+# %%
