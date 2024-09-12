@@ -285,8 +285,15 @@ class HMS_ImagePredictor:
 
         # Y1_w = Y1 + 3.2
         # Y2_w = Y2 -1.94 
-        Y1_w = Y1 + 1.665
-        Y2_w = Y2 -1.665 
+        #y postion adjusted by ledge height
+        toppanel_wls = list(self.hmsParamDict['MosaicFilters'][1])
+        wdict = self.wlParamDict[toppanel_wls[0]]
+        Y1_w = Y1 + (wdict['PanelHeightmm'] - wdict['PanelWindowHeightmm'])
+        
+        #y postion adjusted by ledge height
+        bottompanel_wls = list(self.hmsParamDict['MosaicFilters'][0])
+        wdict = self.wlParamDict[bottompanel_wls[0]]
+        Y2_w = Y2 - (wdict['PanelHeightmm'] - wdict['PanelWindowHeightmm'])
         
         ax.set_xlim(X2_w,X1_w) #limit from L-> R if looking from grating to mosaic.
         ax.set_ylim(Y2_w,Y1_w)
@@ -303,6 +310,9 @@ class HMS_ImagePredictor:
         ls = '-'
         lw = 1.5
         ax.axhline(Y2_w + self.wlParamDict['6563']['PanelHeightmm'],linewidth = lw, linestyle = ls,color =c)
+        #test for the difference between horizontal line at gamma = 90 and the middle seam of mosiac. they should be right on top of eachother.
+        # ax.axhline(self.g0,linewidth = lw, linestyle = ls,color ='orange')
+        # print(Y2_w + self.wlParamDict['6563']['PanelHeightmm'] - self.g0)
         
     
         def annotate_width(lenmm,x_start,y0,wl,toppanel:bool=True,measurement:bool=Mesurements):
@@ -541,12 +551,12 @@ class HMS_ImagePredictor:
 
 
 #%%
-predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.25)
+predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.45)
 
 # %%
 # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
 
-img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,480.5,644,786.0,782.1,780.8,652.2,654.4,653.3], mosaic=True,measurement=False)
+img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
 
 #%%
 # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3])

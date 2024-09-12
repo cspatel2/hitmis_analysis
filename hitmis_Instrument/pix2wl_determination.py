@@ -162,7 +162,7 @@ class MapPixel2Wl:
         return straightened_image, target_wls
 
 # %%
-predictor = HMS_ImagePredictor('a',67.39,50)
+predictor = HMS_ImagePredictor('bo',67.39,50)
 # %%
 mapping = MapPixel2Wl(predictor)
 
@@ -229,4 +229,9 @@ plt.legend(loc = 'best')
 
     
 
+# %%
+plt.imshow(mapping.lambdagrid)
+# %%
+img,wl_arr =mapping.straighten_img('',777.4)
+print(np.min(wl_arr), np.max(wl_arr))
 # %%

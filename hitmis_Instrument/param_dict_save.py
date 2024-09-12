@@ -99,14 +99,14 @@ hmsB_ParamDict = {
     'SlitLengthmm': 55.30, #slight length, mm.
     'SlitLengthdeg': np.rad2deg(np.arctan(55.30/400)), # slit length = slitlen/focallength,Deg.
     'sigma': 10245.208387, #measured grating density
-    'relSlitPositionmm': 21.07, #Distance between the two slits, mm.
-    'SlitA2FarEdgemm': 69.16, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
-    'SlitA2CloseEdgemm': 13.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
-    'MosaicWidthmm':52.05,
-    'MosaicHeightmm': 53.38,
+    'relSlitPositionmm': 20.04, #Distance between the two slits, mm.
+    'SlitA2FarEdgemm': 71.35, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
+    'SlitA2CloseEdgemm': 15.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
+    'MosaicWidthmm':52.52,
+    'MosaicHeightmm': 55.10,
     #Blue tap facing away from grating, if we are looking from grating to mosaic
-    'MosaicWindowWidthmm':49.52, #The window that the camera images, mm.
-    'MosaicWindowHeightmm':50.05, #the window height that the camera images, mm.
+    'MosaicWindowWidthmm':49.96, #The window that the camera images, mm.
+    'MosaicWindowHeightmm':50.15, #the window height that the camera images, mm.
     'MosaicFilters': [['4278','7774','6300','5577'],  #top panel from L -> R
                       ['4861','6563']] #bottom panel from L -> R
     }
@@ -200,14 +200,14 @@ hmsBOrigin_ParamDict = {
     'SlitLengthmm': 55.30, #slight length, mm.
     'SlitLengthdeg': np.rad2deg(np.arctan(55.30/400)), # slit length = slitlen/focallength,Deg.
     'sigma': 10245.208387, #measured grating density
-    'relSlitPositionmm': 21.07, #Distance between the two slits, mm.
-    'SlitA2FarEdgemm': 69.16, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
-    'SlitA2CloseEdgemm': 13.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
-    'MosaicWidthmm':52.05,
-    'MosaicHeightmm': 53.38,
+    'relSlitPositionmm': 20.04, #Distance between the two slits, mm.
+    'SlitA2FarEdgemm': 71.35, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
+    'SlitA2CloseEdgemm': 15.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.
+    'MosaicWidthmm':52.52,
+    'MosaicHeightmm': 55.10,
     #Blue tap facing away from grating, if we are looking from grating to mosaic
-    'MosaicWindowWidthmm':49.52, #The window that the camera images, mm.
-    'MosaicWindowHeightmm':50.05, #the window height that the camera images, mm.
+    'MosaicWindowWidthmm':49.96, #The window that the camera images, mm.
+    'MosaicWindowHeightmm':50.15, #the window height that the camera images, mm.
     'MosaicFilters': [['7774', '7841', '4278', '6300', '5577'], #top panel from L -> R
                       ['6563','4861']] #,'6544']]  #bottom panel from L -> R
     }
@@ -224,8 +224,8 @@ hmsBOrigin_wlParamDict = {
             'PanelLetter':'a',
             'PanelWindowWidthmm':14.75,
             'PanelWidthmm':14.75,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowHeightmm':24.775, #measure the window to + or -
+            'PanelHeightmm':24.775+2.64,
             },
     '6300':{'wl':630.0, 
             'color':'Red', 
@@ -234,8 +234,8 @@ hmsBOrigin_wlParamDict = {
             'PanelLetter':'b',
             'PanelWindowWidthmm': 6.5,  #1.44 ,
             'PanelWidthmm':6.5,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowHeightmm':24.775, #measure the window to + or -
+            'PanelHeightmm':24.775+2.64,
             },
     '4278':{'wl':427.8, 
             'color':'blue', 
@@ -244,8 +244,8 @@ hmsBOrigin_wlParamDict = {
             'PanelLetter':'d',
             'PanelWindowWidthmm':4.5, #measure the window to + or -
             'PanelWidthmm':4.5,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowHeightmm':24.775, #measure the window to + or -
+            'PanelHeightmm':24.775+2.64,
             },
     '7841':{'wl':784.1, 
             'color':'hotpink', 
@@ -254,8 +254,8 @@ hmsBOrigin_wlParamDict = {
             'PanelLetter':'d',
             'PanelWindowWidthmm':16, #measure the window to + or -
             'PanelWidthmm':16,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowHeightmm':24.775, #measure the window to + or -
+            'PanelHeightmm':24.775+2.64,
             },
         
     '7774':{'wl':777.4, 
@@ -263,10 +263,10 @@ hmsBOrigin_wlParamDict = {
             'SlitNum':2, 
             'DiffractionOrder': 23,
             'PanelLetter':'c',
-            'PanelWindowWidthmm':10.3 -2.53,
-            'PanelWidthmm':10.3,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowWidthmm':8.21,
+            'PanelWidthmm': 8.21 + 2.56,
+            'PanelWindowHeightmm':24.775, #measure the window to + or -
+            'PanelHeightmm':24.775+2.64,
             },
     '4861':{'wl':486.1, 
             'color':'cyan', 
@@ -275,29 +275,19 @@ hmsBOrigin_wlParamDict = {
             'PanelLetter':'f',
             'PanelWindowWidthmm':21 , #measure the window to + or -
             'PanelWidthmm':21,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowHeightmm':25.375, #measure the window to + or -
+            'PanelHeightmm':25.375 + 2.31,
             },
     '6563':{'wl':656.3, 
             'color':'Darkred',
             'SlitNum':3,
             'DiffractionOrder': 28,
             'PanelLetter':'e',
-            'PanelWindowWidthmm':29.3 - 2.53 , 
-            'PanelWidthmm':31.05,
-            'PanelWindowHeightmm':25.025, #measure the window to + or -
-            'PanelHeightmm':26.69,
+            'PanelWindowWidthmm':28.96 , 
+            'PanelWidthmm':28.96 + 2.56 ,
+            'PanelWindowHeightmm':25.375, #measure the window to + or -
+            'PanelHeightmm':25.375 + 2.31,
             },
-#     '6544':{'wl':654.4, 
-#             'color':'darkorange', 
-#             'SlitNum':3, 
-#             'DiffractionOrder': 28,
-#             'PanelLetter':'f',
-#             'PanelWindowWidthmm':29.3 , #measure the window to + or -
-#             'PanelWidthmm':29.3,
-#             'PanelWindowHeightmm':26.69, #measure the window to + or -
-#             'PanelHeightmm':26.69,
-#             }
     
 }
 # Save dictionary to a file
