@@ -1,7 +1,7 @@
 #%%
 import os
 import matplotlib
-from grating import Grating,single_defraction
+from hitmis_Instrument.grating import Grating,single_defraction
 import numpy as np
 import matplotlib.pyplot as plt
 from collections.abc import Iterable
@@ -12,12 +12,13 @@ from skimage import exposure
 from hmspython.Utils._files import load_pickle_file
 #%%
 # %%
-hmsA_ParamDict = load_pickle_file('hmsA_Params.pkl')
-hmsA_wlParamDict = load_pickle_file('hmsA_wlParams.pkl')
-hmsB_ParamDict = load_pickle_file('hmsB_Params.pkl')
-hmsB_wlParamDict = load_pickle_file('hmsB_wlParams.pkl')
-hmsBOrigin_ParamDict = load_pickle_file('hmsBOrigin_Params.pkl')
-hmsBOrigin_wlParamDict = load_pickle_file('hmsBOrigin_wlParams.pkl')
+script_dir = os.path.dirname(__file__)
+hmsA_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsA_Params.pkl'))
+hmsA_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsA_wlParams.pkl'))
+hmsB_ParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_Params.pkl'))
+hmsB_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_wlParams.pkl'))
+hmsBOrigin_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_Params.pkl'))
+hmsBOrigin_wlParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl'))
 
 class HMS_ImagePredictor:
     def __init__(self, hmsVersion: str, alpha: float = 83.5, num_orders: int = 75, mgammadeg: float = 90, pix: int = 3008):
@@ -94,10 +95,13 @@ class HMS_ImagePredictor:
     
     def Linear(self, x:float,m:float,b:float):return m*x+b
 
-    def plot_spectral_lines(self, ImageAt: str, Tape2Grating: bool, mosaic: bool = True, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4], measurement:bool=True):
+    def plot_spectral_lines(self, ImageAt: str, Tape2Grating: bool, mosaic: bool = True, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4], measurement:bool=True,fprime:float =None):
         self.wls = wls
         ImageAt = ImageAt.lower()
         
+        if fprime is not None:
+            self.fprime = fprime
+            
         # Calculate beta values using grating equation
         betas = Grating(self.alphas, self.gamma, self.orders, self.sigma, wls)  # deg
         betas = self.deg2mm(betas, fl=self.fprime) #mm
@@ -127,7 +131,7 @@ class HMS_ImagePredictor:
         elif ImageAt == 'detector':
             ax.set_xlabel('Detector X [pix]')
             ax.set_ylabel('Detector Y [pix]')
-            self._plot_on_detector(ax, betas, gamma, wls, Tape2Grating)
+            self._plot_on_detector(ax, betas, gamma, wls, Tape2Grating,fprime)
         
         else:
             ax.set_xlabel('Beta [mm]')
@@ -391,7 +395,9 @@ class HMS_ImagePredictor:
             
         plt.savefig(f"hms{self.hmsVersion.upper()}_Mosaic_Measurements.png")
         
-    def _plot_on_detector(self, ax, betas, gamma, wls, Tape2Grating):
+    def _plot_on_detector(self, ax, betas, gamma, wls, Tape2Grating,fprime = None):
+        if fprime is not None:
+            self.fprime = fprime
         # Transform to pixel coordinates
         self.wls = wls
         X1 = self.deg2mm(self.alpha,fl=self.fprime) - self.hmsParamDict['SlitA2FarEdgemm'] #mm
@@ -456,7 +462,7 @@ class HMS_ImagePredictor:
         clipped_image = np.clip(image, lower_value, upper_value)
         return clipped_image
     
-    def overlay_on_Image(self, impath:str, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4] , vmin:float = 0, vmax:float =np.nan):
+    def overlay_on_Image(self, impath:str, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4] , vmin:float = 0, vmax:float =np.nan,fprime = None):
         self.wls = wls
         if '.png' in impath:
             data = plt.imread(impath)
@@ -515,17 +521,24 @@ class HMS_ImagePredictor:
 
         return np.array(self.deg2mm((betas[0] - betas[1]), fl=self.f))
     
-    def fit_fprime(self,element:str):
+    def fit_fprime(self,element:str, alp:Iterable):
+        """_summary_
+
+        Args:
+            element (str): Oxygen lines or Hydrogen lines
+            alp (Iterable): Alphas at which the model matched observed img order of 'oxygen': wl= [630.0,557.7]
+            and hydrogen':wl = [656.3, 486.1]
+        """        
         plt.figure()
         if element.lower() in 'hydrogen':
             wl = [656.3, 486.1]
-            if self.hmsVersion == 'a':alp = [67.58,67.4]
-            elif self.hmsVersion == 'b':alp = [66.57,66.76]
+            # if self.hmsVersion == 'a':alp = [67.58,67.4]
+            # elif self.hmsVersion == 'b':alp = [66.57,66.76]
             version = self.hmsVersion.upper()
             plt.title("HiT&MIS {version} \nHydrogen Lines \n ds = s(Halpha) - s(Hbeta)")
         elif element.lower() in 'oxygen':
             wl= [630.0,557.7] #wl of oxygen lines, hydrogen lines
-            alp = [67.575,67.48] #alpha where observed matches model
+            # alp = [67.575,67.48] #alpha where observed matches model
             version = self.hmsVersion.upper()
             plt.title("HiT&MIS {version} \nOxygen Lines \n ds = s(red) - s(green)")
         
@@ -551,12 +564,12 @@ class HMS_ImagePredictor:
 
 
 #%%
-predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.45)
+# predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.45)
 
-# %%
-# img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
+# # %%
+# # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
 
-img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
+# img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
 
 #%%
 # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3])
