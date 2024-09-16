@@ -10,6 +10,7 @@ import astropy.io.fits as pf
 from scipy.optimize import curve_fit
 from skimage import exposure
 from hmspython.Utils._files import load_pickle_file
+from scipy.ndimage import zoom
 #%%
 # %%
 script_dir = os.path.dirname(__file__)
@@ -57,8 +58,8 @@ class HMS_ImagePredictor:
         
         
         
-        self.lw = 0.4 #line width
-        self.ms = 0.4 #maker size
+        self.lw = 0.1 #line width
+        self.ms = 0.1 #maker size
         self.ls = '--o' #line style
         self.lc = 'black' #line color
 
@@ -521,7 +522,7 @@ class HMS_ImagePredictor:
 
         return np.array(self.deg2mm((betas[0] - betas[1]), fl=self.f))
     
-    def fit_fprime(self,element:str, alp:Iterable):
+    def fit_fprime(self,wls:str, alp:Iterable):
         """_summary_
 
         Args:
@@ -530,25 +531,14 @@ class HMS_ImagePredictor:
             and hydrogen':wl = [656.3, 486.1]
         """        
         plt.figure()
-        if element.lower() in 'hydrogen':
-            wl = [656.3, 486.1]
-            # if self.hmsVersion == 'a':alp = [67.58,67.4]
-            # elif self.hmsVersion == 'b':alp = [66.57,66.76]
-            version = self.hmsVersion.upper()
-            plt.title("HiT&MIS {version} \nHydrogen Lines \n ds = s(Halpha) - s(Hbeta)")
-        elif element.lower() in 'oxygen':
-            wl= [630.0,557.7] #wl of oxygen lines, hydrogen lines
-            # alp = [67.575,67.48] #alpha where observed matches model
-            version = self.hmsVersion.upper()
-            plt.title("HiT&MIS {version} \nOxygen Lines \n ds = s(red) - s(green)")
-        
+       
+        plt.title(f"HiT&MIS {self.hmsVersion}")
         cidx = np.arange(50,90,1) #make it 101 after
-
         #True line spacing
-        ds = self.line_spacing(wl,cidx=cidx,observed=False) 
+        ds = self.line_spacing(wls,cidx=cidx,observed=False) 
         print(ds)
         #Observed Line Spacing
-        ds_prime = self.line_spacing(wl,alp,cidx,True) 
+        ds_prime = self.line_spacing(wls,alp,cidx,True) 
 
         def fitfunc(ds:float,fprime:float):return(fprime*ds/400)
 
@@ -559,6 +549,45 @@ class HMS_ImagePredictor:
         plt.xlabel("True line Spacing, ds [mm]")
         plt.ylabel("observed line Spacing, ds' [mm]")
         plt.legend()
+    
+    # def fit_fprime(self,element:str, alp:Iterable):
+    #     """_summary_
+
+    #     Args:
+    #         element (str): Oxygen lines or Hydrogen lines
+    #         alp (Iterable): Alphas at which the model matched observed img order of 'oxygen': wl= [630.0,557.7]
+    #         and hydrogen':wl = [656.3, 486.1]
+    #     """        
+    #     plt.figure()
+    #     if element.lower() in 'hydrogen':
+    #         wl = [656.3, 486.1]
+    #         # if self.hmsVersion == 'a':alp = [67.58,67.4]
+    #         # elif self.hmsVersion == 'b':alp = [66.57,66.76]
+    #         version = self.hmsVersion.upper()
+    #         plt.title("HiT&MIS {version} \nHydrogen Lines \n ds = s(Halpha) - s(Hbeta)")
+    #     elif element.lower() in 'oxygen':
+    #         wl= [630.0,557.7] #wl of oxygen lines, hydrogen lines
+    #         # alp = [67.575,67.48] #alpha where observed matches model
+    #         version = self.hmsVersion.upper()
+    #         plt.title("HiT&MIS {version} \nOxygen Lines \n ds = s(red) - s(green)")
+        
+    #     cidx = np.arange(50,90,1) #make it 101 after
+
+    #     #True line spacing
+    #     ds = self.line_spacing(wl,cidx=cidx,observed=False) 
+    #     print(ds)
+    #     #Observed Line Spacing
+    #     ds_prime = self.line_spacing(wl,alp,cidx,True) 
+
+    #     def fitfunc(ds:float,fprime:float):return(fprime*ds/400)
+
+    #     popt,pcov = curve_fit(fitfunc, ds,ds_prime)
+        
+    #     plt.scatter(ds,ds_prime,marker='x', color ='red', s = 5)
+    #     plt.plot(ds,fitfunc(ds,popt[0]), label = f"Slope (f') = {popt[0]:.3f}")
+    #     plt.xlabel("True line Spacing, ds [mm]")
+    #     plt.ylabel("observed line Spacing, ds' [mm]")
+    #     plt.legend()
 
 
 
