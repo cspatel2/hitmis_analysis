@@ -13,13 +13,13 @@ from hmspython.Utils._files import load_pickle_file
 from scipy.ndimage import zoom
 #%%
 # %%
-script_dir = os.path.dirname(__file__)
-hmsA_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsA_Params.pkl'))
-hmsA_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsA_wlParams.pkl'))
-hmsB_ParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_Params.pkl'))
-hmsB_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_wlParams.pkl'))
-hmsBOrigin_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_Params.pkl'))
-hmsBOrigin_wlParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl'))
+
+# hmsA_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsA_Params.pkl'))
+# hmsA_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsA_wlParams.pkl'))
+# hmsB_ParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_Params.pkl'))
+# hmsB_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_wlParams.pkl'))
+# hmsBOrigin_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_Params.pkl'))
+# hmsBOrigin_wlParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl'))
 
 class HMS_ImagePredictor:
     def __init__(self, hmsVersion: str, alpha: float = 83.5, num_orders: int = 75, mgammadeg: float = 90, pix: int = 3008):
@@ -30,18 +30,24 @@ class HMS_ImagePredictor:
         self.pix = pix
 
         # Select parameter dictionaries based on HMS version
-        if self.hmsVersion == 'a':
-            self.hmsParamDict = hmsA_ParamDict
-            self.wlParamDict = hmsA_wlParamDict
-        elif self.hmsVersion == 'b':
-            self.hmsParamDict = hmsB_ParamDict
-            self.wlParamDict = hmsB_wlParamDict
-        elif self.hmsVersion == 'bo':
-            self.hmsParamDict = hmsBOrigin_ParamDict
-            self.wlParamDict = hmsBOrigin_wlParamDict
-            
+        script_dir = os.path.dirname(__file__)
+        if self.hmsVersion == 'a': #latest version of hmsA
+            hmsParamDict_path = os.path.join(script_dir, 'hmsA_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsA_wlParams.pkl')
+        elif self.hmsVersion == 'ae': #hmsA used at eclipse
+            hmsParamDict_path = os.path.join(script_dir, 'hmsAEclipse_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsAEclipse_wlParams.pkl')
+        elif self.hmsVersion == 'b': #Latest Version of hmsB
+            hmsParamDict_path = os.path.join(script_dir, 'hmsB_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsB_wlParams.pkl')
+        elif self.hmsVersion == 'bo': #hmsB prepared for ORIGIN (OH + aurora mosaic)
+            hmsParamDict_path = os.path.join(script_dir, 'hmsBOrigin_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl')        
         else:
-            raise ValueError('Invalid HMS version. Please choose "a" or "b".')
+            raise ValueError('Invalid HMS version. Please choose "a", "b", "ae" , "bo" .')
+        
+        self.hmsParamDict = load_pickle_file(hmsParamDict_path)
+        self.wlParamDict = load_pickle_file(hmswlParamDict_path)
         # Initialize other parameters
         self.f = self.hmsParamDict['FlCollimator']  # focal length of collimator slit -> grating
         self.fprime = self.hmsParamDict['FlPrimeCamera']   # focal length of collimator grating -> mosaic

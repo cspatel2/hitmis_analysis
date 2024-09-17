@@ -2,8 +2,8 @@
 from textwrap import wrap
 import numpy as np
 import matplotlib.pyplot as plt
-from img_predictor import HMS_ImagePredictor, load_pickle_file
-from grating import Grating,correct_unit_of_angle
+from hitmis_Instrument.img_predictor import HMS_ImagePredictor, load_pickle_file
+from hitmis_Instrument.grating import Grating,correct_unit_of_angle
 from skimage.transform import warp
 from hmspython.Utils._files import *
 from glob import glob
@@ -31,6 +31,7 @@ class MapPixel2Wl:
         print('Done.')
 
     def calc_lamda_gratingeqn(self,alpha:float,beta:float,gamma:float,order:int) ->float:
+
         alpha = correct_unit_of_angle(alpha,"rad")
         beta = correct_unit_of_angle(beta,"rad")
         gamma = correct_unit_of_angle(gamma,"rad")
@@ -44,6 +45,7 @@ class MapPixel2Wl:
         return np.array(gammadeg_grid.T,dtype = float)
     
     def get_beta_grid(self) -> np.array:
+
         betafaredge = self.ip.alpha - self.ip.mm2deg(self.hmsParamDict['SlitA2FarEdgemm'],self.ip.fprime)
         betanearedge = betafaredge + self.ip.mm2deg(self.ip.MosaicWindowWidthmm,self.ip.fprime)
         betadeg = [list(np.linspace(betafaredge,betanearedge,self.ip.pix))] #linspace of betas that are allowed through the mosaic, one row of betas
@@ -95,29 +97,37 @@ class MapPixel2Wl:
         rows,cols = self.get_wlpanel_idx(wl,self.panelgrid)
         return np.array(value_grid[np.min(rows):np.max(rows)+1, np.min(cols):np.max(cols)+1])
 
-    def straighten_img(self, imgpath: str, wavelength: float, plot: bool = True):
+    def straighten_img(self, wavelength: float, img:np.array = None, imgpath: str= None, plot: bool = True, plotwlaxis:bool = True, wlrowidx = 50):
+        # the wl range of the straightened images should be a row of the image that closer to the center of the mosaic.
+        if wavelength in self.ip.hmsParamDict['MosaicFilters'][0]: #bottom panel so beta = 90 is closer to the top of the image
+            wlrowidx = np.abs(wlrowidx)
+        if wavelength in self.ip.hmsParamDict['MosaicFilters'][1]:#top panel so beta = 90 is closer to the bottom of the image
+            wlrowidx = -np.abs(wlrowidx)
         wl = int(wavelength * 10)
-        
+
+        if isinstance(img,np.ndarray):
+            print(f'input img shape = {np.shape(img)}')
+            data_panel = self.extract_wlpanel(wl,img)
+            cbarlabel = 'Normalized Intenisty'
+        elif isinstance(imgpath,str):
+            if os.path.exists(imgpath):
+                # Extract panel from the hms img
+                data, _ = open_fits(imgpath)
+                data = exposure.equalize_hist(data)
+                data_panel = self.extract_wlpanel(wl, data)
+                cbarlabel = 'Normalized Intenisty'
+            else:
+                data_panel = wl_array
+                cbarlabel = 'Wavelength'
+        else:raise ValueError('Must provide an image array or image file path (.fit or .fits)')
+            
         # Extract wl panel from raytrace at detector
         wl_array = self.extract_wlpanel(wl, self.lambdagrid)
         rows, cols = np.shape(wl_array)
-        wl_min = np.min(wl_array[0])
-        wl_max = np.max(wl_array[0])
-        
+        wl_min = np.min(wl_array[wlrowidx])
+        wl_max = np.max(wl_array[wlrowidx])
         # Define target_wls ensuring correct order
         target_wls = np.linspace(wl_max, wl_min, cols)
-        
-        if os.path.exists(imgpath):
-            # Extract panel from the hms img
-            data, _ = open_fits(imgpath)
-            data = exposure.equalize_hist(data)
-            data_panel = self.extract_wlpanel(wl, data)
-            cbarlabel = 'Normalized Intenisty'
-        else:
-            data_panel = wl_array
-            cbarlabel = 'Wavelength'
-            
-        
         print(f"Shape of wl_array: {np.shape(wl_array)}, Shape of target_wls: {np.shape(target_wls)}")
         
         # Mapping function for line straightening. It uses target_wls and wl_array from above.
@@ -133,7 +143,8 @@ class MapPixel2Wl:
             return xy_transformed
         
         # Straighten data using mapping func that is based on simulation
-        straightened_image = warp(data_panel, mapping_function, preserve_range=True, order=1)
+        print(f'Data panel shape: {np.shape(data_panel)}')
+        straightened_image = warp(data_panel, mapping_function, preserve_range=True, order=1, mode='constant',cval = np.nan)
         
         # Flip the straightened image horizontally
         straightened_image = np.fliplr(straightened_image)
@@ -152,9 +163,17 @@ class MapPixel2Wl:
             # Plot the straightened spectral lines on the right
             im1 = axs[1].imshow(straightened_image, aspect='auto')
             axs[1].set_title("Straightened Spectral Lines")
-            axs[1].set_xlabel("Pixel Position X")
+            
             axs[1].set_ylabel("Pixel Position Y")
             fig.colorbar(im1, ax=axs[1], label=cbarlabel)
+            centralwlidx = np.argmin(np.abs(target_wls-wavelength))
+            axs[1].axvline(x = centralwlidx, color = 'white', linestyle = '--', linewidth = 0.8)
+            if plotwlaxis:
+                wllabels = np.array([f'{x:.1f}' for x in target_wls])
+                l = axs[1].set_xticks(ticks = np.arange(0,len(target_wls),200),labels = wllabels[ np.arange(0,len(target_wls),200)])
+                axs[1].set_xlabel("Wavelength [nm]")
+            else:
+                axs[1].set_xlabel("Pixel Position X")
 
             plt.tight_layout()
             plt.show()
@@ -162,76 +181,80 @@ class MapPixel2Wl:
         return straightened_image, target_wls
 
 # %%
-predictor = HMS_ImagePredictor('bo',67.39,50)
-# %%
-mapping = MapPixel2Wl(predictor)
+# predictor = HMS_ImagePredictor('bo',67.39,50)
+# # %%
+# mapping = MapPixel2Wl(predictor)
 
-#%%
-fdir = 'Images/hmsA_img/20240829/*.fits'
-fnames = glob(fdir)
-fnames.sort()
-print(len(fnames))
-# %%
-idx = -300
+# #%%
+# fdir = 'Images/hmsA_img/20240829/*.fits'
+# fnames = glob(fdir)
+# fnames.sort()
+# print(len(fnames))
+# # %%
+# idx = -300
 
 
-# %%
-def bin_and_sum_image(straightened_image, wavelength_bins, row_bin_size=100, col_bin_size=5, plot=True):
-    rows, cols = straightened_image.shape
-    num_row_bins = rows // row_bin_size
-    num_col_bins = cols // col_bin_size
+# # %%
+# def bin_and_sum_image(straightened_image, wavelength_bins, row_bin_size=100, col_bin_size=5, plot=True):
+#     rows, cols = straightened_image.shape
+#     num_row_bins = rows // row_bin_size
+#     num_col_bins = cols // col_bin_size
 
-    # Initialize array to hold binned and summed data
-    binned_data = np.zeros((num_row_bins, num_col_bins))
+#     # Initialize array to hold binned and summed data
+#     binned_data = np.zeros((num_row_bins, num_col_bins))
 
-    for i in range(num_row_bins):
-        for j in range(num_col_bins):
-            start_row = i * row_bin_size
-            end_row = start_row + row_bin_size
-            start_col = j * col_bin_size
-            end_col = start_col + col_bin_size
-            binned_data[i, j] = np.sum(straightened_image[start_row:end_row, start_col:end_col])
+#     for i in range(num_row_bins):
+#         for j in range(num_col_bins):
+#             start_row = i * row_bin_size
+#             end_row = start_row + row_bin_size
+#             start_col = j * col_bin_size
+#             end_col = start_col + col_bin_size
+#             binned_data[i, j] = np.sum(straightened_image[start_row:end_row, start_col:end_col])
 
-    # Adjust wavelength bins to match the binned columns
-    binned_wavelength_bins = np.mean(np.reshape(wavelength_bins[:num_col_bins * col_bin_size], (num_col_bins, col_bin_size)), axis=1)
+#     # Adjust wavelength bins to match the binned columns
+#     binned_wavelength_bins = np.mean(np.reshape(wavelength_bins[:num_col_bins * col_bin_size], (num_col_bins, col_bin_size)), axis=1)
 
-    if plot:
-        plt.figure(figsize=(12, 6))
-        for i in range(num_row_bins):
-            plt.plot(binned_wavelength_bins, binned_data[i, :], label=f'Bin {i+1}')
+#     if plot:
+#         plt.figure(figsize=(12, 6))
+#         for i in range(num_row_bins):
+#             plt.plot(binned_wavelength_bins, binned_data[i, :], label=f'Bin {i+1}')
 
-        plt.xlabel("Wavelength")
-        plt.ylabel("Summed Intensity")
-        plt.title("Line Profiles and Read Noise")
-        plt.legend()
-        plt.show()
+#         plt.xlabel("Wavelength")
+#         plt.ylabel("Summed Intensity")
+#         plt.title("Line Profiles and Read Noise")
+#         plt.legend()
+#         plt.show()
 
-    return binned_data, binned_wavelength_bins
+#     return binned_data, binned_wavelength_bins
 
-# %%
-img,wl_arr =mapping.straighten_img(fnames[idx], 630.0)
-binned_data,wl_arr = bin_and_sum_image(img, wl_arr,col_bin_size=2)
-plt.plot(wl_arr,binned_data.mean(axis = 0),linewidth = 0.7)
-plt.axvline(x = 630.0, linestyle = '--', linewidth = 0.5)
-plt.title(format_time(fnames[idx].split('ccdi_')[-1].strip('.fits')))
-# %%
-plt.figure()
+# # %%
+# img,wl_arr =mapping.straighten_img(fnames[idx], 630.0)
+# binned_data,wl_arr = bin_and_sum_image(img, wl_arr,col_bin_size=2)
+# plt.plot(wl_arr,binned_data.mean(axis = 0),linewidth = 0.7)
+# plt.axvline(x = 630.0, linestyle = '--', linewidth = 0.5)
+# plt.title(format_time(fnames[idx].split('ccdi_')[-1].strip('.fits')))
+# # %%
+# plt.figure()
 
-for i in range(1,5):
-    img,wl =mapping.straighten_img(fnames[idx], 630.0, plot = False)
-    binned_data,wl_arr = bin_and_sum_image(img, wl,col_bin_size=i, plot = False)
+# for i in range(1,5):
+#     img,wl =mapping.straighten_img(fnames[idx], 630.0, plot = False)
+#     binned_data,wl_arr = bin_and_sum_image(img, wl,col_bin_size=i, plot = False)
     
-    plt.plot(wl_arr,binned_data[7],linewidth = 0.7, label = f'binsize = {i}')
-    plt.xlim(629.5, 630.5)
-plt.axvline(x = 630.0, linestyle = '--', linewidth = 0.5)
-plt.legend(loc = 'best')
+#     plt.plot(wl_arr,binned_data[7],linewidth = 0.7, label = f'binsize = {i}')
+#     plt.xlim(629.5, 630.5)
+# plt.axvline(x = 630.0, linestyle = '--', linewidth = 0.5)
+# plt.legend(loc = 'best')
 
 
     
 
+# # %%
+# plt.imshow(mapping.lambdagrid)
+# # %%
+# img,wl_arr =mapping.straighten_img('',777.4)
+# print(np.min(wl_arr), np.max(wl_arr))
+# # %%
+
 # %%
-plt.imshow(mapping.lambdagrid)
-# %%
-img,wl_arr =mapping.straighten_img('',777.4)
-print(np.min(wl_arr), np.max(wl_arr))
+
 # %%

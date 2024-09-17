@@ -105,14 +105,15 @@ def timestamp_from_fn(fn:str) -> int:
     """    
     return int(fn.rstrip('.fit').split('_')[-1])
 
-def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,imgsize:int = 3008,normalize:bool = False,save:bool= False, plot:bool=False):
+def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,save:bool= False, plot:bool=False):
     """
     Loads  data fits files from eclipse day or before, crops img to mosaic, and mirrors image so as to match the orientation of the final image as originally seen by the detector.
 
     Args:
         fn (str): file path
-        crop_xpix (int, optional):number of cols to crop from the top. Defaults to 95.
-        crop_ypix (int, optional): number of rows to crop from bottom. Defaults to 95.
+        crop_xpix (int, optional):number of cols to crop from the top. Defaults to 96.
+        crop_ypix (int, optional): number of rows to crop from bottom. Defaults to 96.
+        mirror (Bool, optional):if True, image will be mirrors about both axes to match the orientation at the detector. if true: img at detector, if False: img at mosaic. Defaults to True
         imgsize (int, optional):shape of final square image, it can be 1024x1024 or 3008x3008.. Defaults to 3008.
         normalize (bool, optional): If True, normalize the image using skimage.exposure.equalize_hist(). Defaults to False.
         save (bool, optional): If True, saves the new cropped and fliped image as a new file with prefix of the fn as "cropped". Defaults to False.
@@ -128,19 +129,23 @@ def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,imgsize:int
     # Resize the cropped image to 3008x3008 pixels
     zoom_factor = (imgsize / cropped_img_data.shape[0], imgsize/ cropped_img_data.shape[1])
     resized_img_data = zoom(cropped_img_data, zoom_factor, order=3)  # order=3 for cubic interpolation
-    # Reverse the image along both axes
-    reversed_img_data = np.flip(resized_img_data, axis=(0, 1))
+
+    if mirror: #image at detector
+        # Reverse the image along both axes
+        final_img_data = np.flip(resized_img_data, axis=(0, 1))
+    else:#image at mosaic
+        final_img_data = resized_img_data
     
     # # Save the reversed and resized image as a new FITS file
     if save:
-        hdu = fits.PrimaryHDU(reversed_img_data)
+        hdu = fits.PrimaryHDU(final_img_data)
         hdul_new = fits.HDUList([hdu])
         output_fits_path = f"cropped_{fn.split('/')[-1]}"
         hdul_new.writeto(output_fits_path, overwrite=True)
     if plot:
         plt.figure()
-        plt.imshow(reversed_img_data,cmap = 'viridis')
+        plt.imshow(final_img_data,cmap = 'viridis')
         plt.colorbar()
         plt.show()
         
-    return reversed_img_data
+    return final_img_data
