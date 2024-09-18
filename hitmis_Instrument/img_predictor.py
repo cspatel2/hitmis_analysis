@@ -71,14 +71,45 @@ class HMS_ImagePredictor:
 
     # Spatial to angular coordinates
     def mm2deg(self, len_mm: float,fl:float) -> float:
+        """converts linear postion (mm) to angluar postion (degrees)
+
+        Args:
+            len_mm (float): linear postion in mm. 
+            fl (float): focal length of the lens in mm.
+
+        Returns:
+            float: angluar postion in degrees.
+        """
         return np.rad2deg(len_mm / fl)
 
     # Angular to spatial coordinates
     def deg2mm(self, beta_deg: float, fl: float) -> float:
+        """ converts angluar postion (degrees) to linear postion (mm)
+
+        Args:
+            beta_deg (float): angluar postion in degrees.
+            fl (float): focal length of the lens in mm.
+
+        Returns:
+            float: linear postion in mm.
+        """
         return fl * np.deg2rad(beta_deg)
 
     # Angular to detector coordinates
     def deg2pix(self, deg: float,axis:int , fl:float, totalpix:int = None) -> float:
+        """ Converts angluar postion (degrees) to pixel postion (pix)
+        Args:
+            deg (float): angluar postion in degrees.
+            axis (int): 0 for x-axis, 1 for y-axis.
+            fl (float): focal length of the lens in mm.
+            totalpix (int, optional): toal number of pixels on the detector along the axis. if None-it defualts to the detector size used to iniitalize the class. Defaults to None.
+
+        Raises:
+            ValueError: Axis has to be 0 [x-axis] or 1 [y-axis]
+
+        Returns:
+            float: pixel postion (pix)
+        """
         if totalpix is None: totalpix = self.pix
         if axis == 0: mlen= self.MosaicWindowWidthmm # axis 0 = x, mlen = width of mosaic window of HMS
         elif axis ==1: mlen= self.MosaicWindowHeightmm # axis 1 = y, mlen = height of mosaic window of HMS

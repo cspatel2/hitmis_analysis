@@ -6,6 +6,7 @@ from hitmis_Instrument.img_predictor import HMS_ImagePredictor, load_pickle_file
 from hitmis_Instrument.grating import Grating,correct_unit_of_angle
 from skimage.transform import warp
 from hmspython.Utils._files import *
+from hmspython.Utils._Utility import *
 from glob import glob
 from skimage import exposure
 # %%
@@ -101,34 +102,44 @@ class MapPixel2Wl:
         # the wl range of the straightened images should be a row of the image that closer to the center of the mosaic.
         if wavelength in self.ip.hmsParamDict['MosaicFilters'][0]: #bottom panel so beta = 90 is closer to the top of the image
             wlrowidx = np.abs(wlrowidx)
-        if wavelength in self.ip.hmsParamDict['MosaicFilters'][1]:#top panel so beta = 90 is closer to the bottom of the image
+        elif wavelength in self.ip.hmsParamDict['MosaicFilters'][1]:#top panel so beta = 90 is closer to the bottom of the image
             wlrowidx = -np.abs(wlrowidx)
         wl = int(wavelength * 10)
+        
+        # locate the row that is closes to gamma = 90
+        gamma_array = self.extract_wlpanel(wl,self.gammagrid)
+        g90idx,_ = find_nearest((gamma_array,90))
+        
+        # Extract wl panel from raytrace at detector
+        wl_array = self.extract_wlpanel(wl, self.lambdagrid)
+        rows, cols = np.shape(wl_array)
+        wl_min = np.min(wl_array[g90idx])
+        wl_max = np.max(wl_array[g90idx])
+        # wl_min = np.min(wl_array[wlrowidx])
+        # wl_max = np.max(wl_array[wlrowidx])
+        # Define target_wls ensuring correct order
+        target_wls = np.linspace(wl_max, wl_min, cols)
+        print(f"Shape of wl_array: {np.shape(wl_array)}, Shape of target_wls: {np.shape(target_wls)}")
+        
 
+        #data can be a 2d array or a filepath to a .fits file
         if isinstance(img,np.ndarray):
             print(f'input img shape = {np.shape(img)}')
             data_panel = self.extract_wlpanel(wl,img)
-            cbarlabel = 'Normalized Intenisty'
+            cbarlabel = 'Intenisty'
         elif isinstance(imgpath,str):
             if os.path.exists(imgpath):
                 # Extract panel from the hms img
                 data, _ = open_fits(imgpath)
-                data = exposure.equalize_hist(data)
+                # data = exposure.equalize_hist(data)
                 data_panel = self.extract_wlpanel(wl, data)
                 cbarlabel = 'Normalized Intenisty'
-            else:
+            else: #if path does not exist then make wl
                 data_panel = wl_array
                 cbarlabel = 'Wavelength'
-        else:raise ValueError('Must provide an image array or image file path (.fit or .fits)')
+        else: 
+            raise ValueError('Must provide an image array or image file path (.fit or .fits)')
             
-        # Extract wl panel from raytrace at detector
-        wl_array = self.extract_wlpanel(wl, self.lambdagrid)
-        rows, cols = np.shape(wl_array)
-        wl_min = np.min(wl_array[wlrowidx])
-        wl_max = np.max(wl_array[wlrowidx])
-        # Define target_wls ensuring correct order
-        target_wls = np.linspace(wl_max, wl_min, cols)
-        print(f"Shape of wl_array: {np.shape(wl_array)}, Shape of target_wls: {np.shape(target_wls)}")
         
         # Mapping function for line straightening. It uses target_wls and wl_array from above.
         def mapping_function(xy: np.array):
@@ -227,7 +238,7 @@ class MapPixel2Wl:
 
 #     return binned_data, binned_wavelength_bins
 
-# # %%
+# %%
 # img,wl_arr =mapping.straighten_img(fnames[idx], 630.0)
 # binned_data,wl_arr = bin_and_sum_image(img, wl_arr,col_bin_size=2)
 # plt.plot(wl_arr,binned_data.mean(axis = 0),linewidth = 0.7)
