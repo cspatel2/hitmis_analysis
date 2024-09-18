@@ -47,7 +47,7 @@ predictor = HMS_ImagePredictor('bo',67.39,50)
 # %%
 mapping = MapPixel2Wl(predictor)
 # %%
-wl = 630.0
+wl = 486.1
 simg,wlarr = mapping.straighten_img(wl, imgpath = fnames[0])
 # %%
 data,_= open_fits(fnames[0])

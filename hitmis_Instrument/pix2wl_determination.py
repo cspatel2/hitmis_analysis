@@ -32,7 +32,17 @@ class MapPixel2Wl:
         print('Done.')
 
     def calc_lamda_gratingeqn(self,alpha:float,beta:float,gamma:float,order:int) ->float:
+        """Calulates λ using the grating equation
+            λ = σ(sinγ)/m * (sinα + sinβ) 
+        Args:
+            alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
+            beta (float): angle of difraction, β [Degrees (0-360) or Radians(0-2π)].
+            gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
+            order (int): difraction order, m.
 
+        Returns:
+            float: Wavelength, λ.
+        """        
         alpha = correct_unit_of_angle(alpha,"rad")
         beta = correct_unit_of_angle(beta,"rad")
         gamma = correct_unit_of_angle(gamma,"rad")
@@ -40,13 +50,22 @@ class MapPixel2Wl:
         return (self.sigma/order)*np.sin(gamma)*(np.sin(alpha)+np.sin(beta))
 
     def get_gamma_grid(self) -> np.array:
+        """ calculates angle of incidence parallel to grooves for all pixel postions.
+
+        Returns:
+            np.array: gamma_grid [degrees], shape = (totalpix X totalpix)
+        """        
         gdeg = 90 + self.ip.mm2deg(self.ip.MosaicWindowHeightmm/2,self.ip.fprime) * np.linspace(-1,1,2*101) #linspace of gammas that are allowed through the mosaic window, one column of gammas
         gdeg_binned = [list(np.linspace(np.min(gdeg),np.max(gdeg),self.ip.pix))] 
         gammadeg_grid = np.array(gdeg_binned*self.ip.pix) #grid
         return np.array(gammadeg_grid.T,dtype = float)
     
     def get_beta_grid(self) -> np.array:
+        """calculates angle of difraction for all pixel postions.
 
+        Returns:
+            np.array:  beta_grid [degrees], shape = (totalpix X totalpix)
+        """        
         betafaredge = self.ip.alpha - self.ip.mm2deg(self.hmsParamDict['SlitA2FarEdgemm'],self.ip.fprime)
         betanearedge = betafaredge + self.ip.mm2deg(self.ip.MosaicWindowWidthmm,self.ip.fprime)
         betadeg = [list(np.linspace(betafaredge,betanearedge,self.ip.pix))] #linspace of betas that are allowed through the mosaic, one row of betas
@@ -54,6 +73,17 @@ class MapPixel2Wl:
         return np.array(betadeg_grid,dtype = float)
     
     def get_value_grid(self,value:str) -> np.array:
+        """calculates value for requested variable for all pixel postions. variables can be one of the following: 'alpha','wl','difractionorder'
+
+        Args:
+            value (str): Requestion variable can be: \n 'alpha' - incidence angle perpendicular to grooves (degrees). \n 'wl' - the wl that the panel belongs to (Angstroms). \n 'difractionorder' - order of diffraction m.
+
+        Raises:
+            ValueError: Value must be 'Alpha', 'wl', 'DifractionOrder'. 
+
+        Returns:
+            np.array: grid of values of shape = (totalpix X totalpix)
+        """        
         value = value.lower()
         if value not in ['alpha','wl','difractionorder']: raise ValueError("Value must be 'Alpha', 'wl', 'DifractionOrder. ")
         gammagrid = self.get_gamma_grid() #get grid of gamma values, deg.
@@ -98,25 +128,19 @@ class MapPixel2Wl:
         rows,cols = self.get_wlpanel_idx(wl,self.panelgrid)
         return np.array(value_grid[np.min(rows):np.max(rows)+1, np.min(cols):np.max(cols)+1])
 
-    def straighten_img(self, wavelength: float, img:np.array = None, imgpath: str= None, plot: bool = True, plotwlaxis:bool = True, wlrowidx = 50):
-        # the wl range of the straightened images should be a row of the image that closer to the center of the mosaic.
-        if wavelength in self.ip.hmsParamDict['MosaicFilters'][0]: #bottom panel so beta = 90 is closer to the top of the image
-            wlrowidx = np.abs(wlrowidx)
-        elif wavelength in self.ip.hmsParamDict['MosaicFilters'][1]:#top panel so beta = 90 is closer to the bottom of the image
-            wlrowidx = -np.abs(wlrowidx)
-        wl = int(wavelength * 10)
+    def straighten_img(self, wavelength: float, img:np.array = None, imgpath: str= None, plot: bool = True, plotwlaxis:bool = True):
         
+        wl = int(wavelength * 10)
+    
         # locate the row that is closes to gamma = 90
         gamma_array = self.extract_wlpanel(wl,self.gammagrid)
-        g90idx,_ = find_nearest((gamma_array,90))
+        g90idx,_ = find_nearest(gamma_array[:,0],self.ip.mgammadeg)
         
         # Extract wl panel from raytrace at detector
         wl_array = self.extract_wlpanel(wl, self.lambdagrid)
         rows, cols = np.shape(wl_array)
         wl_min = np.min(wl_array[g90idx])
         wl_max = np.max(wl_array[g90idx])
-        # wl_min = np.min(wl_array[wlrowidx])
-        # wl_max = np.max(wl_array[wlrowidx])
         # Define target_wls ensuring correct order
         target_wls = np.linspace(wl_max, wl_min, cols)
         print(f"Shape of wl_array: {np.shape(wl_array)}, Shape of target_wls: {np.shape(target_wls)}")
@@ -142,13 +166,13 @@ class MapPixel2Wl:
             
         
         # Mapping function for line straightening. It uses target_wls and wl_array from above.
-        def mapping_function(xy: np.array):
+        def mapping_function(xy: np.array) ->Iterable:
             xy_transformed = np.empty(np.shape(xy))  # Copy of the coordinate array
             for i in range(len(xy)):
                 row, col = int(xy[i, 1]), int(xy[i, 0])
                 current_wl = wl_array[row, col]
                 # Find column corresponding to the closest wl in target_wls
-                target_col = np.argmin(np.abs(target_wls - current_wl))
+                target_col,_ = find_nearest(target_wls,current_wl)
                 xy_transformed[i, 0] = target_col
                 xy_transformed[i, 1] = row
             return xy_transformed
@@ -156,7 +180,7 @@ class MapPixel2Wl:
         # Straighten data using mapping func that is based on simulation
         print(f'Data panel shape: {np.shape(data_panel)}')
         straightened_image = warp(data_panel, mapping_function, preserve_range=True, order=1, mode='constant',cval = np.nan)
-        
+        print(f'straightened img shape: {np.shape(straightened_image)}')
         # Flip the straightened image horizontally
         straightened_image = np.fliplr(straightened_image)
         target_wls = target_wls[::-1]
@@ -180,8 +204,9 @@ class MapPixel2Wl:
             centralwlidx = np.argmin(np.abs(target_wls-wavelength))
             axs[1].axvline(x = centralwlidx, color = 'white', linestyle = '--', linewidth = 0.8)
             if plotwlaxis:
-                wllabels = np.array([f'{x:.1f}' for x in target_wls])
-                l = axs[1].set_xticks(ticks = np.arange(0,len(target_wls),200),labels = wllabels[ np.arange(0,len(target_wls),200)])
+                wllabels = [f'{x:.1f}' for x in target_wls]
+                stepsize = 200
+                l = axs[1].set_xticks(ticks = np.arange(0,len(target_wls),stepsize),labels = wllabels[::stepsize])
                 axs[1].set_xlabel("Wavelength [nm]")
             else:
                 axs[1].set_xlabel("Pixel Position X")
