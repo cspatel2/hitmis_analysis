@@ -289,6 +289,7 @@ hmsBOrigin_ParamDict = {
     'SlitLengthmm': 55.30, #slight length, mm.
     'SlitLengthdeg': np.rad2deg(np.arctan(55.30/400)), # slit length = slitlen/focallength,Deg.
     'sigma': 10245.208387, #measured grating density
+#     'sigma': 10131.7122594, #new grating
     'relSlitPositionmm': 20.04, #Distance between the two slits, mm.
     'SlitA2FarEdgemm': 71.35, #distance between slit closest to mosaic and the farest edge of the mosaic, mm.
     'SlitA2CloseEdgemm': 15.83, #distance between slit closest to mosaic and the closest edge of the mosaic, mm.

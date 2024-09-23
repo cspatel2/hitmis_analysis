@@ -5,14 +5,14 @@ import wave
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage import transform
-from hitmis_Instrument.img_predictor import HMS_ImagePredictor, load_pickle_file
+from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor, load_pickle_file
 import astropy.io.fits as pf
 from glob import glob
 from astropy.io import fits
 from hmspython.Utils._files import *
 from hmspython.Utils._Utility import *
 
-from hitmis_Instrument.pix2wl_determination import MapPixel2Wl
+from hmspython.Diffraction._Pixel2wlMapping import MapPixel2Wl
 from skimage.transform import warp
 
 #%%

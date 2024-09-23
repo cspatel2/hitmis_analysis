@@ -4,7 +4,7 @@ import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
 from skimage import exposure
-from img_predictor import HMS_ImagePredictor
+from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
 
 
 # %%

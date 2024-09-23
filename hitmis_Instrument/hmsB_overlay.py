@@ -1,6 +1,6 @@
 #%%
 import numpy as np
-from img_predictor import HMS_ImagePredictor
+from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
 import matplotlib.pyplot as plt
 from glob import glob
 # %%

@@ -4,25 +4,9 @@ import matplotlib.pyplot as plt
 from collections.abc import Iterable
 import matplotlib.patches as patches
 from tqdm import tqdm
+from hmspython.Utils._Utility import *
 
 # %%
-def correct_unit_of_angle(angle:float, convert_to:str) ->float:
-            if isinstance(angle, Iterable):
-                return np.asarray([correct_unit_of_angle(a,convert_to) for a in angle])
-            convert_to = convert_to.replace('s','')
-            if convert_to not in 'radian' and convert_to not in 'degree':
-                raise ValueError("convert_to units must be degrees or radians.")
-            if (0<= abs(angle)<= 2*np.pi):
-                if convert_to.lower() in "degrees":
-                    return np.rad2deg(angle)
-                else:
-                    return angle
-            
-            elif (0<= abs(angle)<= 360.):
-                if convert_to.lower() in "radians":
-                    return np.deg2rad(angle)
-                else:
-                    return angle
 def single_defraction(alpha:float,gamma:float,m_order:int, sigma:float, wl:float)-> float:
     if isinstance(m_order, Iterable):
         m_iter = list(m_order)
@@ -38,7 +22,7 @@ def single_defraction(alpha:float,gamma:float,m_order:int, sigma:float, wl:float
 
             
     alpha_rad = correct_unit_of_angle(alpha,'rad')
-    gamma_rad = correct_unit_of_angle(gamma,'rad')
+    gamma_rad = correct_unit_of_angle(gamma,'rad')  # noqa: F405
 
     beta_rad = np.arcsin(-np.sin(alpha_rad) + ((m_order*wl)/(sigma*np.sin(gamma_rad))) )
 

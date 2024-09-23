@@ -1,10 +1,7 @@
 #%%
-from textwrap import wrap
 import numpy as np
 import matplotlib.pyplot as plt
-from hitmis_Instrument.img_predictor import HMS_ImagePredictor, load_pickle_file
-from hitmis_Instrument.grating import Grating,correct_unit_of_angle
-from skimage.transform import warp
+from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
 from hmspython.Utils._files import *
 from hmspython.Utils._Utility import *
 from glob import glob
@@ -12,7 +9,9 @@ from skimage import transform
 import os
 # %%
 class MapPixel2Wl:
-    def __init__(self, predictor:HMS_ImagePredictor):  
+    """This Class maps the each pixel of the detector to the corresponding wavelegth that is indicent on it though the hms instrument.
+    """    
+    def __init__(self, predictor:HMS_ImagePredictor) -> None:  
         self.ip = predictor #HMs image predictor
         self.hmsParamDict = self.ip.hmsParamDict
         self.wlParamDict = self.ip.wlParamDict
@@ -26,25 +25,24 @@ class MapPixel2Wl:
         self.panelgrid = self.get_value_grid('wl')
         print('Calculating Alpha...')
         self.alphagrid = self.get_value_grid('alpha')
-        print('Calculating Order of Difraction...')
-        self.ordergrid = self.get_value_grid('difractionOrder')
+        print('Calculating Order of diffraction...')
+        self.ordergrid = self.get_value_grid('diffractionOrder')
         print('Calculating wavelength map...')
         self.lambdagrid = self.get_lambda_grid()
         print('Done.')
 
     def calc_lamda_gratingeqn(self,alpha:float,beta:float,gamma:float,order:int) ->float:
-        """Calulates λ using the grating equation
-            λ = σ(sinγ)/m * (sinα + sinβ) 
+        """Calulates λ using the grating equation \n λ = σ(sinγ)/m * (sinα + sinβ) 
         Args:
             alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
-            beta (float): angle of difraction, β [Degrees (0-360) or Radians(0-2π)].
+            beta (float): angle of diffraction, β [Degrees (0-360) or Radians(0-2π)].
             gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
-            order (int): difraction order, m.
+            order (int): diffraction order, m.
 
         Returns:
             float: Wavelength, λ.
         """        
-        alpha = correct_unit_of_angle(alpha,"rad")
+        alpha = correct_unit_of_angle(alpha,"rad")  # noqa: F405
         beta = correct_unit_of_angle(beta,"rad")
         gamma = correct_unit_of_angle(gamma,"rad")
 
@@ -62,7 +60,7 @@ class MapPixel2Wl:
         return np.array(gammadeg_grid.T,dtype = float)
     
     def get_beta_grid(self) -> np.array:
-        """calculates angle of difraction for all pixel postions.
+        """calculates angle of diffraction for all pixel postions.
 
         Returns:
             np.array:  beta_grid [degrees], shape = (totalpix X totalpix)
@@ -74,19 +72,19 @@ class MapPixel2Wl:
         return np.array(betadeg_grid,dtype = float)
     
     def get_value_grid(self,value:str) -> np.array:
-        """calculates value for requested variable for all pixel postions. variables can be one of the following: 'alpha','wl','difractionorder'
+        """calculates value for requested variable for all pixel postions. variables can be one of the following: 'alpha','wl','diffractionorder'
 
         Args:
-            value (str): Requestion variable can be: \n 'alpha' - incidence angle perpendicular to grooves (degrees). \n 'wl' - the wl that the panel belongs to (Angstroms). \n 'difractionorder' - order of diffraction m.
+            value (str): Requestion variable can be: \n 'alpha' - incidence angle perpendicular to grooves (degrees). \n 'wl' - the wl that the panel belongs to (Angstroms). \n 'diffractionorder' - order of diffraction m.
 
         Raises:
-            ValueError: Value must be 'Alpha', 'wl', 'DifractionOrder'. 
+            ValueError: Value must be 'Alpha', 'wl', 'diffractionOrder'. 
 
         Returns:
             np.array: grid of values of shape = (totalpix X totalpix)
         """        
         value = value.lower()
-        if value not in ['alpha','wl','difractionorder']: raise ValueError("Value must be 'Alpha', 'wl', 'DifractionOrder. ")
+        if value not in ['alpha','wl','diffractionorder']: raise ValueError("Value must be 'Alpha', 'wl', 'diffractionOrder. ")
         gammagrid = self.get_gamma_grid() #get grid of gamma values, deg.
         betagrid = self.get_beta_grid() # get grid of beta values, deg.
         
@@ -111,20 +109,44 @@ class MapPixel2Wl:
                 
                 if value in 'alpha': val = float(alpha)
                 elif value in 'wl': val = int(wl)
-                elif value in 'difractionorder': val = morder
+                elif value in 'diffractionorder': val = morder
         
                 value_grid[X,Y] = val
         return np.array(value_grid)
         
-    def get_lambda_grid(self):
+    def get_lambda_grid(self) -> list[float]:
+        """ Calculate diffracted wavelength for all pixel postions.
+
+        Returns:
+            list[float]: wavelegth array of shape totalpix X totalpix
+        """        
         return list(map(self.calc_lamda_gratingeqn,self.alphagrid,self.betagrid,self.gammagrid,self.ordergrid))
 
-    def get_wlpanel_idx(self,wl,value_grid):
+    def get_wlpanel_idx(self,wl:int,value_grid:np.ndarray) -> tuple[np.array,np.array]:
+        """ find idices corresponding to the wavelength (int, A). Used to find the pixels that correspond to single ROI or panel.
+
+        Args:
+            wl (int): Wavelength, Angstroms.
+            value_grid (np.ndarray): grid of values of shape = (totalpix X totalpix). Should be used with self.panelgrid.
+
+        Returns:
+            tuple[np.array,np.array]: rows, columns
+        """        
         value_grid = np.array(value_grid)
         rows,cols = np.where((value_grid==wl))
         return rows,cols
         
-    def extract_wlpanel(self,wl,value_grid):
+    def extract_wlpanel(self,wl:int,value_grid:np.ndarray) -> np.ndarray:
+        """ extracts the value_grid that corresponds to the ROI of the wavelength.
+
+        Args:
+            wl (int): Wavelength, Angstroms.
+            value_grid (np.ndarray): grid of values of shape = (totalpix X totalpix).
+
+        Returns:
+            np.ndarray: ROI_value_grid of shape (n,m)
+        """        
+        
         value_grid = np.array(value_grid)
         rows,cols = self.get_wlpanel_idx(wl,self.panelgrid)
         return np.array(value_grid[np.min(rows):np.max(rows)+1, np.min(cols):np.max(cols)+1])

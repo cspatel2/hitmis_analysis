@@ -1,7 +1,6 @@
 #%%
 import os
 import matplotlib
-from hitmis_Instrument.grating import Grating,single_defraction
 import numpy as np
 import matplotlib.pyplot as plt
 from collections.abc import Iterable
@@ -10,16 +9,9 @@ import astropy.io.fits as pf
 from scipy.optimize import curve_fit
 from skimage import exposure
 from hmspython.Utils._files import load_pickle_file
-from scipy.ndimage import zoom
+from hmspython.Utils._Utility import correct_unit_of_angle
 #%%
 # %%
-
-# hmsA_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsA_Params.pkl'))
-# hmsA_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsA_wlParams.pkl'))
-# hmsB_ParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_Params.pkl'))
-# hmsB_wlParamDict = load_pickle_file(os.path.join(script_dir,'hmsB_wlParams.pkl'))
-# hmsBOrigin_ParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_Params.pkl'))
-# hmsBOrigin_wlParamDict = load_pickle_file(os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl'))
 
 class HMS_ImagePredictor:
     def __init__(self, hmsVersion: str, alpha: float = 83.5, num_orders: int = 75, mgammadeg: float = 90, pix: int = 3008):
@@ -61,11 +53,9 @@ class HMS_ImagePredictor:
         self.MosaicWindowWidthmm = self.hmsParamDict['MosaicWindowWidthmm']
         self.MosaicHeightmm = self.hmsParamDict['MosaicHeightmm']
         self.MosaicWidthmm = self.hmsParamDict['MosaicWidthmm']
-        
-        
-        
-        self.lw = 0.1 #line width
-        self.ms = 0.1 #maker size
+    
+        self.lw = 0.4 #line width
+        self.ms = 0.2 #maker size
         self.ls = '--o' #line style
         self.lc = 'black' #line color
 
@@ -120,7 +110,7 @@ class HMS_ImagePredictor:
     def mm2pix(self, len_mm: float, axis: int, totalpix:int = None) -> float:
         if totalpix is None: totalpix = self.pix
 
-        if axis ==0: mlen= self.MosaicWindowWidthmm # axis 0 = x, mlen = width of mosaic window of HMS
+        if axis ==0: mlen= self.MosaicWindowWidthmm # axis 0 = x, mlen = width of mosaic window of HMS  # noqa: E701
         elif axis ==1 : mlen= self.MosaicWindowHeightmm # axis 1 = y, mlen = height of mosaic window of HMS 
         else: raise ValueError("Axis can be 0 [x-axis] or 1 [y-axis]")
         return len_mm * totalpix / mlen
@@ -133,7 +123,72 @@ class HMS_ImagePredictor:
     
     def Linear(self, x:float,m:float,b:float):return m*x+b
 
-    def plot_spectral_lines(self, ImageAt: str, Tape2Grating: bool, mosaic: bool = True, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4], measurement:bool=True,fprime:float =None):
+    def single_defraction(self, alpha:float,gamma:float,m_order:int,sigma:float,wl:float)-> float:
+        """ Calculates difraction angle beta from a diffraction grating using the grating equation. \n sinβ = mλ/(d*sinγ) - sinα 
+
+        Args:
+            alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
+            gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
+            m_order (int):  difraction order, m.
+            sigma (float): grating grove spacing (nm). or 1e6/Grovedensity(grooves/mm)
+            wl (float): Wavelength, λ.
+
+        Returns:
+            float: angle of difraction, β [Degrees (0-360)].
+        """        
+        if isinstance(m_order, Iterable):
+            m_iter = list(m_order)
+        else:
+            m_iter = [m_order]
+
+        if isinstance(gamma, Iterable):
+            beta_arr = []
+            for m in m_iter:
+                betas = [self.single_defraction(alpha,g_,m,sigma,wl) for g_ in gamma] 
+                beta_arr.append(betas)
+            return np.asanyarray(beta_arr)
+
+        alpha_rad = correct_unit_of_angle(alpha,'rad')
+        gamma_rad = correct_unit_of_angle(gamma,'rad')  # noqa: F405
+
+        beta_rad = np.arcsin(-np.sin(alpha_rad) + ((m_order*wl)/(self.sigma*np.sin(gamma_rad))) )
+
+        return np.rad2deg(beta_rad)
+
+    def Grating(self, alpha: float, gamma: float, m_order: int, sigma: float, wl: float) -> np.asanyarray:
+        """ Calulates all possible diffraction angles for orders up to -m to +m using the grating equation: \n sinβ = mλ/(d*sinγ) - sinα 
+
+        Args:
+            alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
+            gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
+            m_order (int): difraction order, m.
+            sigma (float): grating grove spacing (nm). or 1e6/Grovedensity(grooves/mm)
+            wl (float): Wavelength, λ.
+
+        Returns:
+            np.asanyarray: diffraction angles, array of shape (len(wl), len(alpha), 2*m_order + 1, len(gamma))
+        """        
+        if isinstance(alpha, Iterable):alpha_iter = list(alpha)
+        else:alpha_iter = [alpha]
+
+        if isinstance(gamma, Iterable):gamma_iter = list(gamma)
+        else:gamma_iter = [gamma]
+        
+        if isinstance(wl, Iterable):wl_iter = list(wl)
+        else:wl_iter = [wl]
+        
+        results = []
+        for wl in wl_iter:
+            res_per_wl = []
+            for alpha in alpha_iter:
+                beta = self.single_defraction(alpha,gamma_iter,m_order,sigma,wl)
+                res_per_wl.append(beta)
+            results.append(res_per_wl)
+        # shape(result) = (len(wl), len(alpha), 2*m_order + 1, len(gamma))
+        return np.asanyarray(results)
+    
+    def plot_spectral_lines(self, ImageAt: str, Tape2Grating: bool, mosaic: bool = True, wls: Iterable = [486.1, 427.8, 557.7, 630.0, 656.3, 777.4], measurement:bool=True,fprime:float =None) -> plt.Figure:
+        
         self.wls = wls
         ImageAt = ImageAt.lower()
         
@@ -141,7 +196,7 @@ class HMS_ImagePredictor:
             self.fprime = fprime
             
         # Calculate beta values using grating equation
-        betas = Grating(self.alphas, self.gamma, self.orders, self.sigma, wls)  # deg
+        betas = self.Grating(self.alphas, self.gamma, self.orders, self.sigma, wls)  # deg
         betas = self.deg2mm(betas, fl=self.fprime) #mm
         gamma = self.deg2mm(self.gamma, fl=self.fprime) #mm
         
@@ -176,8 +231,6 @@ class HMS_ImagePredictor:
             ax.set_ylabel('Gamma [mm]')
             self._plot_all_lines_on_mosaic(ax, betas, gamma, wls, Tape2Grating)
 
-
-        # plt.show()
         return fig
     
     def _plot_all_lines_on_mosaic(self,ax,betas,gamma,wls,Tape2Grating):
@@ -554,7 +607,7 @@ class HMS_ImagePredictor:
             beta_wl = []
             for i in cidx:
                 print(alpha, self.gamma[i], morder, self.sigma, wl)
-                beta_wl.append(single_defraction(alpha, self.gamma[i], morder, self.sigma, wl))
+                beta_wl.append(self.single_defraction(alpha, self.gamma[i], morder, self.sigma, wl))
             betas.append(np.array(beta_wl))
 
         return np.array(self.deg2mm((betas[0] - betas[1]), fl=self.f))
@@ -630,21 +683,15 @@ class HMS_ImagePredictor:
 
 
 #%%
-# predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.45)
+# predictor = HMS_ImagePredictor(hmsVersion='a',mgammadeg=90,alpha=68.3)
 
-# # %%
-# # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
+# # # %%
+# img = predictor.plot_spectral_lines('MosaicWindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
 
-# img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
+# # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
 
 #%%
 # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3])
-
-
-# # %%
-# predictor = HMS_ImagePredictor(hmsVersion='b',mgammadeg=90+0.6,alpha=66.57)
-# # %%
-# predictor.fit_fprime('hydrogen')
 # %%
 # if __name__ == "__main__":
     # predictor = HMS_ImagePredictor(hmsVersion='b',mgammadeg=90,alpha=85)
@@ -653,18 +700,6 @@ class HMS_ImagePredictor:
     # predictor.plot_spectral_lines('', True,False,wls=[486.1, 656.3,844.6,557.7])
     # predictor.plot_spectral_lines('detector',True)
 #%%
-# imgdir = 'Images/hmsA_testimg/img.png'
-# predictor.overlay_on_Image(imgdir,0,0.2)
-
-# # %%
-# a = list(predictor.hmsParamDict['MosaicFilters'][0]).reverse()
-# # %%
-# predictor.hmsParamDict['MosaicFilters'][0]
-# # %%
-# a = np.arange(60,75,0.5)
-# for aa in a:
-#     predictor = HMS_ImagePredictor(hmsVersion='b',mgammadeg=90,alpha=aa)
-#     predictor.plot_spectral_lines('detector',True)
 
 
 
