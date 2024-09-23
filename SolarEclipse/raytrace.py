@@ -1,72 +1,68 @@
 #%%
 import os
+from pickletools import TAKEN_FROM_ARGUMENT1
+import wave
 import matplotlib.pyplot as plt
 import numpy as np
+from skimage import transform
 from hitmis_Instrument.img_predictor import HMS_ImagePredictor, load_pickle_file
 import astropy.io.fits as pf
 from glob import glob
 from astropy.io import fits
 from hmspython.Utils._files import *
-from hitmis_Instrument.pix2wl_determination import MapPixel2Wl
+from hmspython.Utils._Utility import *
 
-# %%
+from hitmis_Instrument.pix2wl_determination import MapPixel2Wl
+from skimage.transform import warp
+
+#%%
+def coord_trasformation(xy:np.array, wl_grid:np.ndarray, target_wls:np.array) -> np.ndarray:
+    
+    transformed_xy = np.empty(np.shape(xy))
+    for i in range(len(xy)):
+        row,col = int(xy[i,1]), int(xy[i,0])
+        current_wl = wl_grid[row][col]
+        target_col,_ =  find_nearest(target_wls, current_wl)
+        transformed_xy[i,1] = row
+        transformed_xy[i,0] = target_col
+    return transformed_xy
+    
+
+
+# %% Solar Spectra / Eclipe data plot
 # imgdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_EclipseRaw/EclipseDay/20240408/*fit'
 imgdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_SolarSpectra/20240507/*.fit'
 fnames = glob(imgdir)
 print(len(fnames))
-
+fn = fnames[50]
 #%%
 # fn = fnames[2145] # eclipse
-fn = fnames[50]
+
 predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45)
-#%%
 mapping = MapPixel2Wl(predictor)
-#%% Image at Detector
 img_data = open_eclipse_data(fn)
-# fig = predictor.plot_spectral_lines(ImageAt='detector', Tape2Grating=True,wls=[557.6,557.2,557.8,486.1, 427.8, 557.7, 630, 656.3, 777.4])
+#%%
+s = mapping.straighten_img(wavelength=486.1, img=img_data, rotate_deg=1.25)
+#%%
+fig = predictor.plot_spectral_lines(ImageAt='detector', Tape2Grating=True,wls=[557.6,557.2,557.8,486.1, 427.8, 557.7, 630, 656.3, 777.4])
 plt.imshow(img_data,cmap = 'Greys',vmin =0,vmax = 17000)
 plt.colorbar()
 plt.show()
-# %%
-wl = 630.0
-simg,wlarr = mapping.straighten_img(wl,img=img_data,plot=True)
-plt.figure()
-plt.imshow(simg,aspect = 'auto')
-idx = np.argmin(np.abs(wlarr-wl))
-plt.axvline(x = idx)
-wllabels = np.array([f'{x:.1f}' for x in wlarr])
-l = plt.xticks(ticks = np.arange(0,len(wlarr),100),labels = wllabels[ np.arange(0,len(wlarr),100)])
-# %%
 
+
+# %% Current HMS A img
+######################################################################################################################################################
 fdir = '/home/charmi/Projects/hitmis_analysis/data/Images/hmsA_img/20240829/*.fits'
 fnames = glob(fdir)
 fnames.sort()
 print(len(fnames))
-
-predictor = HMS_ImagePredictor('bo',67.39,50)
-# %%
+predictor = HMS_ImagePredictor('a',67.39,50)
 mapping = MapPixel2Wl(predictor)
-# %%
-wl = 486.1
-simg,wlarr = mapping.straighten_img(wl, imgpath = fnames[0])
-# %%
-data,_= open_fits(fnames[0])
-# %%
-plt.imshow(data)
+
+fig = predictor.plot_spectral_lines(ImageAt='detector', Tape2Grating=True,wls=[557.6,557.2,557.8,486.1, 427.8, 557.7, 630, 656.3, 777.4])
+plt.imshow(img_data,cmap = 'Greys')
 plt.colorbar()
-# %%
-plt.imshow(mapping.gammagrid)
+plt.show()
+simg,img = mapping.straighten_img(mapping, wavelength = 656.3, img = fnames[1], rotate_deg=.75) #rotation = 0.75
 
-# %%
-plt.plot(mapping.gammagrid[:,10])
-
-# %%
-def find_nearest(array:np.array, val: float) ->tuple[int,float]:
-    dif = np.abs(np.array(array)-val)
-    idx = np.argmin(dif)
-    return idx, array[idx]
-
-
-# %%
-
-# %%
+#%%

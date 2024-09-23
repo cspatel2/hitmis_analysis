@@ -15,5 +15,5 @@ def find_nearest(array:Iterable, targetval: float) ->tuple[int,float]:
         tuple[int,float]: idex and value. Returns Iterables for both if there is more than one idx.
     """    
     dif = np.abs(np.array(array)-targetval)
-    idx = np.argmin(dif)
+    idx = np.nanargmin(dif)
     return idx, array[idx]

@@ -12,6 +12,7 @@ import pickle
 from skimage import exposure
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
+from PIL import Image
 
 def get_path(directory: str, prefix:str = None,suffix:str = None, wl:str =None )-> str:
     #build absolute path
@@ -105,7 +106,7 @@ def timestamp_from_fn(fn:str) -> int:
     """    
     return int(fn.rstrip('.fit').split('_')[-1])
 
-def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,save:bool= False, plot:bool=False):
+def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,savefits:bool= False,savepng:bool=False, plot:bool=False):
     """
     Loads  data fits files from eclipse day or before, crops img to mosaic, and mirrors image so as to match the orientation of the final image as originally seen by the detector.
 
@@ -116,20 +117,19 @@ def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool
         mirror (Bool, optional):if True, image will be mirrors about both axes to match the orientation at the detector. if true: img at detector, if False: img at mosaic. Defaults to True
         imgsize (int, optional):shape of final square image, it can be 1024x1024 or 3008x3008.. Defaults to 3008.
         normalize (bool, optional): If True, normalize the image using skimage.exposure.equalize_hist(). Defaults to False.
-        save (bool, optional): If True, saves the new cropped and fliped image as a new file with prefix of the fn as "cropped". Defaults to False.
+        savefits (bool, optional): If True, saves the new cropped and fliped image as a new .fits file with prefix of the fn as "cropped". Defaults to False.
+        savepng (bool, optional): If True, saves the new cropped and fliped image as a new .png file with prefix of the fn as "cropped". Defaults to False.
         plot (bool, optional): If True, plots the new cropped and fliped image. Defaults to False.
 
     Returns:
         np.array: HMS img
     """    
     img_data,_ = open_fits(fn)
- 
     if normalize: img_data = exposure.equalize_hist(img_data)
     cropped_img_data = img_data[:-crop_ypix, :-crop_xpix]
     # Resize the cropped image to 3008x3008 pixels
     zoom_factor = (imgsize / cropped_img_data.shape[0], imgsize/ cropped_img_data.shape[1])
     resized_img_data = zoom(cropped_img_data, zoom_factor, order=3)  # order=3 for cubic interpolation
-
     if mirror: #image at detector
         # Reverse the image along both axes
         final_img_data = np.flip(resized_img_data, axis=(0, 1))
@@ -137,11 +137,22 @@ def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool
         final_img_data = resized_img_data
     
     # # Save the reversed and resized image as a new FITS file
-    if save:
+    if savefits:
         hdu = fits.PrimaryHDU(final_img_data)
         hdul_new = fits.HDUList([hdu])
-        output_fits_path = f"cropped_{fn.split('/')[-1]}"
+        dirpath,fname = os.path.split(fn)
+        output_fits_fname = f'cropped_{fname}'
+        output_fits_path = os.path.join(dirpath,output_fits_fname)
         hdul_new.writeto(output_fits_path, overwrite=True)
+    if savepng:
+        dirpath,fname = os.path.split(fn)
+        fname = fname.split('.')[0]
+        output_png_fname = f'cropped_{fname}.png'
+        output_png_path = os.path.join(dirpath,output_png_fname)
+        saveimg = Image.fromarray(final_img_data)
+        saveimg.save(output_png_path)
+        
+
     if plot:
         plt.figure()
         plt.imshow(final_img_data,cmap = 'viridis')

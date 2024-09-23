@@ -8,7 +8,8 @@ from skimage.transform import warp
 from hmspython.Utils._files import *
 from hmspython.Utils._Utility import *
 from glob import glob
-from skimage import exposure
+from skimage import transform
+import os
 # %%
 class MapPixel2Wl:
     def __init__(self, predictor:HMS_ImagePredictor):  
@@ -128,81 +129,81 @@ class MapPixel2Wl:
         rows,cols = self.get_wlpanel_idx(wl,self.panelgrid)
         return np.array(value_grid[np.min(rows):np.max(rows)+1, np.min(cols):np.max(cols)+1])
 
-    def straighten_img(self, wavelength: float, img:np.array = None, imgpath: str= None, plot: bool = True, plotwlaxis:bool = True):
-        
-        wl = int(wavelength * 10)
-    
-        # locate the row that is closes to gamma = 90
-        gamma_array = self.extract_wlpanel(wl,self.gammagrid)
-        g90idx,_ = find_nearest(gamma_array[:,0],self.ip.mgammadeg)
-        
-        # Extract wl panel from raytrace at detector
-        wl_array = self.extract_wlpanel(wl, self.lambdagrid)
-        rows, cols = np.shape(wl_array)
-        wl_min = np.min(wl_array[g90idx])
-        wl_max = np.max(wl_array[g90idx])
-        # Define target_wls ensuring correct order
-        target_wls = np.linspace(wl_max, wl_min, cols)
-        print(f"Shape of wl_array: {np.shape(wl_array)}, Shape of target_wls: {np.shape(target_wls)}")
-        
+    def straighten_img(self,wavelength:float,img:np.ndarray|str,rotate_deg:float = 0, plot: bool =  True, plotwlaxis:bool= True) -> tuple[np.ndarray, np.ndarray, np.array]:
+        """ straighten the img by panel.
 
-        #data can be a 2d array or a filepath to a .fits file
+        Args:
+            wavelength (float): wavelength of ROI, nm.
+            img (np.ndarray | str): HMS img. it can be a 2D array or a str path to .fits file. If path does not exist, it will straighten the modeled spectra.
+            rotate_deg (float, optional): rotate the orginal HMS image counter clockwise from the center, degrees. Defaults to 0.
+            plot (bool, optional): if true, plot the input image on the right, and straighted image on the left. Defaults to True.
+            plotwlaxis (bool, optional): if true, it plots wavelength on the x-axis of the straighted img. Defaults to True.
+
+        Raises:
+            ValueError: img must be a 2D array or a str.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.array]: straighted img, input image, wavelength-array of straighted img. 
+        """        
+        wl = int(wavelength*10)
+        ## extract panel of calcluated lambdas (Modeled)
+        wl_grid = self.extract_wlpanel(wl,self.lambdagrid)
+        
+        ##  extract panel from curved img 
         if isinstance(img,np.ndarray):
-            print(f'input img shape = {np.shape(img)}')
-            data_panel = self.extract_wlpanel(wl,img)
-            cbarlabel = 'Intenisty'
-        elif isinstance(imgpath,str):
-            if os.path.exists(imgpath):
-                # Extract panel from the hms img
-                data, _ = open_fits(imgpath)
-                # data = exposure.equalize_hist(data)
-                data_panel = self.extract_wlpanel(wl, data)
-                cbarlabel = 'Normalized Intenisty'
-            else: #if path does not exist then make wl
-                data_panel = wl_array
-                cbarlabel = 'Wavelength'
-        else: 
-            raise ValueError('Must provide an image array or image file path (.fit or .fits)')
+            img = transform.rotate(img,rotate_deg,cval = np.nan, preserve_range=True)
+            curved_img_grid = self.extract_wlpanel(wl,img)
+            cbarlabel = 'Intensity [ADU]'
+        elif isinstance(img,str):
+            if os.path.exists(img):# Extract panel from the hms img
+                img, _ = open_fits(img)
+                img = transform.rotate(img,rotate_deg,cval = np.nan, preserve_range=True)
+                curved_img_grid = self.extract_wlpanel(wl, img)
+                cbarlabel = 'Intensity [ADU]'
+            else: # if file does not exists, straighten model wl_grid
+                curved_img_grid = wl_grid
+                cbarlabel = 'Wavelength [nm]'
+        else: raise ValueError('img must be a 2D array or str img path.')
+                
             
+        # Chose the target wl array closest to beta = 90 deg to straighted img against.
+        rows,cols  = np.shape(wl_grid)
+        gamma_grid = self.extract_wlpanel(wl,self.gammagrid)
+        gidx,_ = find_nearest(gamma_grid[:,50], self.ip.mgammadeg)
+        target_arr = wl_grid[gidx,:]
+        target_wls = target_arr
+        # target_wls = np.linspace(np.nanmin(target_arr), np.nanmax(target_arr), cols)
         
-        # Mapping function for line straightening. It uses target_wls and wl_array from above.
-        def mapping_function(xy: np.array) ->Iterable:
-            xy_transformed = np.empty(np.shape(xy))  # Copy of the coordinate array
-            for i in range(len(xy)):
-                row, col = int(xy[i, 1]), int(xy[i, 0])
-                current_wl = wl_array[row, col]
-                # Find column corresponding to the closest wl in target_wls
-                target_col,_ = find_nearest(target_wls,current_wl)
-                xy_transformed[i, 0] = target_col
-                xy_transformed[i, 1] = row
-            return xy_transformed
-        
-        # Straighten data using mapping func that is based on simulation
-        print(f'Data panel shape: {np.shape(data_panel)}')
-        straightened_image = warp(data_panel, mapping_function, preserve_range=True, order=1, mode='constant',cval = np.nan)
-        print(f'straightened img shape: {np.shape(straightened_image)}')
-        # Flip the straightened image horizontally
-        straightened_image = np.fliplr(straightened_image)
-        target_wls = target_wls[::-1]
-        
+        #straighten img
+        straight_img = []
+        for k in range(rows):
+            current_row = wl_grid[k]
+            corrected_row = np.array([np.nan]*np.shape(current_row)[0])
+            for idx,val in enumerate(current_row):
+                newidx,_ = find_nearest(target_wls,val)
+                # newidx = np.nanargmin(np.abs(target_wls-val))
+                corrected_row[newidx] = curved_img_grid[k,idx]
+            straight_img.append(corrected_row)
+            
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(12, 6))
             
             # Plot the diffracted spectral lines (curved) on the left
-            im0 = axs[0].imshow(data_panel, aspect='auto')
+            im0 = axs[0].imshow(curved_img_grid, aspect='auto')
             axs[0].set_title("Diffracted Spectral Lines")
             axs[0].set_xlabel("Pixel Position X")
             axs[0].set_ylabel("Pixel Position Y")
             fig.colorbar(im0, ax=axs[0], label=cbarlabel)
-
+            
             # Plot the straightened spectral lines on the right
-            im1 = axs[1].imshow(straightened_image, aspect='auto')
+            im1 = axs[1].imshow(straight_img, aspect='auto')
             axs[1].set_title("Straightened Spectral Lines")
             
             axs[1].set_ylabel("Pixel Position Y")
             fig.colorbar(im1, ax=axs[1], label=cbarlabel)
             centralwlidx = np.argmin(np.abs(target_wls-wavelength))
-            axs[1].axvline(x = centralwlidx, color = 'white', linestyle = '--', linewidth = 0.8)
+            axs[1].axvline(x = centralwlidx, color = 'white',
+            linestyle = '--', linewidth = 0.5)
             if plotwlaxis:
                 wllabels = [f'{x:.1f}' for x in target_wls]
                 stepsize = 200
@@ -213,8 +214,8 @@ class MapPixel2Wl:
 
             plt.tight_layout()
             plt.show()
-            
-        return straightened_image, target_wls
+        
+        return np.array(straight_img), np.array(curved_img_grid), np.array(target_wls)
 
 # %%
 # predictor = HMS_ImagePredictor('bo',67.39,50)
