@@ -24,17 +24,17 @@ class HMS_ImagePredictor:
         # Select parameter dictionaries based on HMS version
         script_dir = os.path.dirname(__file__)
         if self.hmsVersion == 'a': #latest version of hmsA
-            hmsParamDict_path = os.path.join(script_dir, 'hmsA_Params.pkl')
-            hmswlParamDict_path = os.path.join(script_dir, 'hmsA_wlParams.pkl')
+            hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsA_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsA_wlParams.pkl')
         elif self.hmsVersion == 'ae': #hmsA used at eclipse
-            hmsParamDict_path = os.path.join(script_dir, 'hmsAEclipse_Params.pkl')
-            hmswlParamDict_path = os.path.join(script_dir, 'hmsAEclipse_wlParams.pkl')
+            hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAEclipse_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAEclipse_wlParams.pkl')
         elif self.hmsVersion == 'b': #Latest Version of hmsB
-            hmsParamDict_path = os.path.join(script_dir, 'hmsB_Params.pkl')
-            hmswlParamDict_path = os.path.join(script_dir, 'hmsB_wlParams.pkl')
+            hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsB_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsB_wlParams.pkl')
         elif self.hmsVersion == 'bo': #hmsB prepared for ORIGIN (OH + aurora mosaic)
-            hmsParamDict_path = os.path.join(script_dir, 'hmsBOrigin_Params.pkl')
-            hmswlParamDict_path = os.path.join(script_dir, 'hmsBOrigin_wlParams.pkl')        
+            hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsBOrigin_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsBOrigin_wlParams.pkl')        
         else:
             raise ValueError('Invalid HMS version. Please choose "a", "b", "ae" , "bo" .')
         

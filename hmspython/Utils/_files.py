@@ -106,12 +106,12 @@ def timestamp_from_fn(fn:str) -> int:
     """    
     return int(fn.rstrip('.fit').split('_')[-1])
 
-def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,savefits:bool= False,savepng:bool=False, plot:bool=False):
+def open_eclipse_data(img:str|np.ndarray, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,savefits:bool= False,savepng:bool=False, plot:bool=False):
     """
     Loads  data fits files from eclipse day or before, crops img to mosaic, and mirrors image so as to match the orientation of the final image as originally seen by the detector.
 
     Args:
-        fn (str): file path
+        img (str|np.ndarray): file path, or 2D img array.
         crop_xpix (int, optional):number of cols to crop from the top. Defaults to 96.
         crop_ypix (int, optional): number of rows to crop from bottom. Defaults to 96.
         mirror (Bool, optional):if True, image will be mirrors about both axes to match the orientation at the detector. if true: img at detector, if False: img at mosaic. Defaults to True
@@ -123,8 +123,13 @@ def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool
 
     Returns:
         np.array: HMS img
-    """    
-    img_data,_ = open_fits(fn)
+    """ 
+    if isinstance(img,Iterable): img_data = img   
+    elif isinstance(img,str):
+        if os.path.exists(img): img_data,_ = open_fits(img)
+        else: raise ValueError(f"img path '{img}' does not exist. ")
+    else: raise ValueError("img must be valid file path or 2D img array.")
+    
     if normalize: img_data = exposure.equalize_hist(img_data)
     cropped_img_data = img_data[:-crop_ypix, :-crop_xpix]
     # Resize the cropped image to 3008x3008 pixels
@@ -137,22 +142,21 @@ def open_eclipse_data(fn:str, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool
         final_img_data = resized_img_data
     
     # # Save the reversed and resized image as a new FITS file
-    if savefits:
+    if savefits and isinstance(img,str):
         hdu = fits.PrimaryHDU(final_img_data)
         hdul_new = fits.HDUList([hdu])
-        dirpath,fname = os.path.split(fn)
+        dirpath,fname = os.path.split(img)
         output_fits_fname = f'cropped_{fname}'
         output_fits_path = os.path.join(dirpath,output_fits_fname)
         hdul_new.writeto(output_fits_path, overwrite=True)
-    if savepng:
-        dirpath,fname = os.path.split(fn)
+    if savepng and isinstance(img,str):
+        dirpath,fname = os.path.split(img)
         fname = fname.split('.')[0]
         output_png_fname = f'cropped_{fname}.png'
         output_png_path = os.path.join(dirpath,output_png_fname)
         saveimg = Image.fromarray(final_img_data)
         saveimg.save(output_png_path)
         
-
     if plot:
         plt.figure()
         plt.imshow(final_img_data,cmap = 'viridis')

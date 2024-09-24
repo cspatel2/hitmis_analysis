@@ -1,7 +1,9 @@
 #%%
 import pickle
 import numpy as np
-
+import os
+#%%
+dirpath = os.path.dirname(__file__)
 #%%
 hmsA_ParamDict = {
     'hmsVersion':'A',
@@ -22,7 +24,8 @@ hmsA_ParamDict = {
 }
 
 # Save dictionary to a file
-with open('hmsA_Params.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsA_Params.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsA_ParamDict, file)
 # %%
 hmsA_wlParamDict = {
@@ -88,7 +91,8 @@ hmsA_wlParamDict = {
             },
 }
 # Save dictionary to a file
-with open('hmsA_wlParams.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsA_wlParams.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsA_wlParamDict, file)
 
 #%%
@@ -111,8 +115,10 @@ hmsAEclipse_ParamDict = {
 }
 
 # Save dictionary to a file
-with open('hmsAEclipse_Params.pkl', 'wb') as file:
-    pickle.dump(hmsAEclipse_ParamDict, file)
+fn = os.path.join(dirpath,'hmsAEclipse_Params.pkl')
+with open(fn, 'wb') as file:
+        pickle.dump(hmsAEclipse_ParamDict,file)
+
 # %%
 hmsAEclipse_wlParamDict = {
     '5577':{'wl':557.7, 
@@ -177,7 +183,8 @@ hmsAEclipse_wlParamDict = {
             },
 }
 # Save dictionary to a file
-with open('hmsAEclipse_wlParams.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsAEclipse_wlParams.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsAEclipse_wlParamDict, file)
 
 # %%
@@ -201,7 +208,8 @@ hmsB_ParamDict = {
     }
 
 # Save dictionary to a file
-with open('hmsB_Params.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsB_Params.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsB_ParamDict, file)
 
 # %%
@@ -269,7 +277,8 @@ hmsB_wlParamDict = {
             }
 }
 # Save dictionary to a file
-with open('hmsB_wlParams.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsB_wlParams.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsB_wlParamDict, file)
 # %%
 def load_pickle_file(fn:str):
@@ -303,7 +312,8 @@ hmsBOrigin_ParamDict = {
     }
 
 # Save dictionary to a file
-with open('hmsBOrigin_Params.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsBOrigin_Params.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsBOrigin_ParamDict, file)
 # %%
 hmsBOrigin_wlParamDict = {
@@ -381,6 +391,7 @@ hmsBOrigin_wlParamDict = {
     
 }
 # Save dictionary to a file
-with open('hmsBOrigin_wlParams.pkl', 'wb') as file:
+fn = os.path.join(dirpath,'hmsBOrigin_wlParams.pkl')
+with open(fn, 'wb') as file:
     pickle.dump(hmsBOrigin_wlParamDict, file)
 # %%
