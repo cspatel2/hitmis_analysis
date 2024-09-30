@@ -332,7 +332,6 @@ class HMS_ImagePredictor:
         ax.set_xlim(X2,X1) #limit from L-> R if looking from grating to mosaic.
         ax.set_ylim(Y2,Y1)
 
-        # Additional plotting and mosaic setup based on Tape2Grating
     def _plot_on_mosaicwindow(self, ax, betas, gamma, wls, Tape2Grating,Mosaic = True, Mesurements:bool=True):
         for widx, wl in enumerate(wls):
             w = str(int(wl * 10))  # nm -> A

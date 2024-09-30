@@ -48,6 +48,25 @@ class MapPixel2Wl:
 
         return (self.sigma/order)*np.sin(gamma)*(np.sin(alpha)+np.sin(beta))
 
+    def calc_resolution_gratingeqn(self,alpha:float,beta:float,gamma:float,slitwidth:float,wl:float) -> float:
+        """ Calulates spectral resolution of hms given the slitwidth at wavelength λ using the grating equation: \n Δλ = λ*B*cos(β)*[sin(γ)]^(-1) * [sin(α) + sin(β)]^(-1) 
+
+        Args:
+            alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
+            beta (float): angle of diffraction, β [Degrees (0-360) or Radians(0-2π)].
+            gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
+            slitwidth (float): Width of the entrance silt, [microns](1e-6).
+            wl (float):  Wavelength, λ [nm]
+            
+        Returns:
+            float: spectral resolution [nm] 
+        """    
+        alpha = correct_unit_of_angle(alpha,'rad')
+        beta = correct_unit_of_angle(beta,'rad')
+        gamma = correct_unit_of_angle(gamma,'rad')
+        wl = wl*1e-9 #nm -> m
+        slitwidth = slitwidth *1e-6 #microns -> m
+        return( wl*slitwidth*np.cos(beta)/np.sin(gamma) * (np.sin(alpha) + np.sin(beta))**(-1))*1e9
     def get_gamma_grid(self) -> np.array:
         """ calculates angle of incidence parallel to grooves for all pixel postions.
 
@@ -121,6 +140,19 @@ class MapPixel2Wl:
             list[float]: wavelegth array of shape totalpix X totalpix
         """        
         return list(map(self.calc_lamda_gratingeqn,self.alphagrid,self.betagrid,self.gammagrid,self.ordergrid))
+    
+    def get_resolution_grid(self, slitwidth:float) -> list[float]:
+        """Calculate spectral resolution for all pixel postions.
+
+        Args:
+            slitwidth (float):  Width of the entrance silt, [microns](1e-6).
+
+        Returns:
+            list[float]: spectral resolution array of shape totalpix X totalpix
+        """  
+        b = np.empty_like(self.alphagrid)    
+        b.fill(slitwidth)  
+        return list(map(self.calc_resolution_gratingeqn,self.alphagrid,self.betagrid,self.gammagrid,b,self.lambdagrid))
 
     def get_wlpanel_idx(self,wl:int,value_grid:np.ndarray) -> tuple[np.array,np.array]:
         """ find idices corresponding to the wavelength (int, A). Used to find the pixels that correspond to single ROI or panel.

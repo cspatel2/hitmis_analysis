@@ -9,6 +9,7 @@ from hmspython.Utils import _files
 from hmspython.Utils import _Utility
 from glob import glob
 import astropy.io.fits as fits
+import xarray as xr
 
 # %%
 #for each file 
@@ -24,7 +25,10 @@ print(len(fnames))
 fn = fnames[50]
 #%%
 # #%%
-
+predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45)
+mapping = MapPixel2Wl(predictor)
+#%%
+imgs,tstamps,time,exposure,gain,camtemp = []
 with fits.open(fn) as hdul:
     header = hdul[1].header
     tstamp = int(header['HIERARCH TIMESTAMP']) #ms
@@ -35,7 +39,32 @@ with fits.open(fn) as hdul:
     data = hdul[1].data
     data = _files.open_eclipse_data(data) #crop and resize img to 3008x3008
     data =data/(exposure*1e-3) # [ADU/s]
-    
-    
-    
+#%%
+
+img_data = data
+#%%
+s = mapping.straighten_img(wavelength=486.1, img=img_data, rotate_deg=1.25)
+
+
+# %%
+simg,img,wlaxis = s
+pix_y = np.arange(np.shape(img)[0])
+# %%
+ds = xr.Dataset(
+    data_vars=dict(
+        img=(["tstamp","wavelength", "pix_y"], data),
+    ),
+    coords=dict(
+        tstamp = ("tstamp",tstamp),
+        wavelength = ("wavelength", wlaxis),
+        pix_y = ("pix_y", pix_y),
+        gain = ('tstamp',gain),
+        exposure = ('tstamp', exposure),
+        camtemp = ('tstamp', camtemp),
+        time = ('tstamp', time )
+
+
+    ),
+    attrs=dict(description="Weather related data."),
+)
 # %%

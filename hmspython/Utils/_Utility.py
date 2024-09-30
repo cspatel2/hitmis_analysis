@@ -36,13 +36,13 @@ def correct_unit_of_angle(angle:float, convert_to:str) ->float:
     convert_to = convert_to.replace('s','')
     if convert_to not in 'radian' and convert_to not in 'degree':
         raise ValueError("convert_to units must be degrees or radians.")
-    if (0<= abs(angle)<= 2*np.pi):
+    if (0<= np.abs(angle)<= 2*np.pi):
         if convert_to.lower() in "degrees":
             return np.rad2deg(angle)
         else:
             return angle
     
-    elif (0<= abs(angle)<= 360.):
+    elif (0<= np.abs(angle)<= 360.):
         if convert_to.lower() in "radians":
             return np.deg2rad(angle)
         else:
