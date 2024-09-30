@@ -307,7 +307,7 @@ hmsBOrigin_ParamDict = {
     #Blue tap facing away from grating, if we are looking from grating to mosaic
     'MosaicWindowWidthmm':49.96, #The window that the camera images, mm.
     'MosaicWindowHeightmm':50.15, #the window height that the camera images, mm.
-    'MosaicFilters': [['7774', '7841', '4278', '6300', '5577'], #top panel from L -> R
+    'MosaicFilters': [['7841', '4278', '6300', '5577'], #top panel from L -> R
                       ['6563','4861']] #,'6544']]  #bottom panel from L -> R
     }
 
@@ -342,8 +342,8 @@ hmsBOrigin_wlParamDict = {
             'SlitNum':1,
             'DiffractionOrder': 43,
             'PanelLetter':'d',
-            'PanelWindowWidthmm':4.5, #measure the window to + or -
-            'PanelWidthmm':4.5,
+            'PanelWindowWidthmm':6, #measure the window to + or -
+            'PanelWidthmm':6,
             'PanelWindowHeightmm':24.775, #measure the window to + or -
             'PanelHeightmm':24.775+2.64,
             },
@@ -352,22 +352,22 @@ hmsBOrigin_wlParamDict = {
             'SlitNum':2,
             'DiffractionOrder': 23,
             'PanelLetter':'d',
-            'PanelWindowWidthmm':16, #measure the window to + or -
-            'PanelWidthmm':16,
+            'PanelWindowWidthmm':14.5+8.21, #measure the window to + or -
+            'PanelWidthmm':14.5 +8.21 + 2.56,
             'PanelWindowHeightmm':24.775, #measure the window to + or -
             'PanelHeightmm':24.775+2.64,
             },
         
-    '7774':{'wl':777.4, 
-            'color':'plum',
-            'SlitNum':2, 
-            'DiffractionOrder': 23,
-            'PanelLetter':'c',
-            'PanelWindowWidthmm':8.21,
-            'PanelWidthmm': 8.21 + 2.56,
-            'PanelWindowHeightmm':24.775, #measure the window to + or -
-            'PanelHeightmm':24.775+2.64,
-            },
+#     '7774':{'wl':777.4, 
+#             'color':'plum',
+#             'SlitNum':2, 
+#             'DiffractionOrder': 23,
+#             'PanelLetter':'c',
+#             'PanelWindowWidthmm':8.21,
+#             'PanelWidthmm': 8.21 + 2.56,
+#             'PanelWindowHeightmm':24.775, #measure the window to + or -
+#             'PanelHeightmm':24.775+2.64,
+#             },
     '4861':{'wl':486.1, 
             'color':'cyan', 
             'SlitNum':4, 

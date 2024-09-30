@@ -119,6 +119,44 @@ class HMS_ImagePredictor:
         alpha_slitA = alpha  # deg
         alpha_slitB = alpha_slitA + self.mm2deg(self.hmsParamDict['relSlitPositionmm'], self.f)  # deg
         return [alpha_slitA, alpha_slitB]  # deg
+    
+    def annotate_width(self,ax,lenmm,x_start,y0,wl,linewidth,linestyle,color,measurement:bool,toppanel:bool=True):
+            if toppanel:
+                ymin = 0.5
+                ymax  = 1
+                ha='left'
+                va='bottom'
+                y = y0-12
+                
+            else:
+                ymin = 0
+                ymax = 0.5
+                ha='left'
+                va='bottom'
+                y = y0 - 12
+            ax.axvline(x = x_start,ymin=ymin,ymax =ymax,linewidth = linewidth, linestyle = linestyle,color =color)
+            plt.text(x_start+lenmm-.5,y,f'Panel:{wl} A',color='black', fontsize=7, ha=ha, va=va, rotation = 90,
+                        bbox=dict(facecolor='white', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.3'))
+            xy = (x_start,y0)
+            xytext = (x_start + lenmm,y0)
+            if measurement:
+                plt.annotate('', xy=xy, xytext=xytext, 
+                            arrowprops=dict(arrowstyle='<->', color='black', lw=1))
+                plt.text(x_start + lenmm/2, y0, f'{lenmm:.2f} mm',
+                        color='black', fontsize=7, ha='center', va='center',
+                        bbox=dict(facecolor='white', alpha=1, edgecolor='none', boxstyle='round,pad=0.3'))
+            
+    def annotate_height(self,ax,lenmm,y_start,x0,linewidth,linestyle,color,measurement:bool):
+        ax.axhline(y = y_start+lenmm,linewidth = linewidth, linestyle = linestyle,color =color)
+        xy = (x0,y_start)
+        xytext = (x0,y_start+lenmm)
+        if measurement:
+            plt.annotate('', xy=xy, xytext=xytext, 
+                        arrowprops=dict(arrowstyle='<->', color='black', lw=1))
+            plt.text(x0,y_start + lenmm/5, f'{lenmm:.2f} mm',
+                    color='black', fontsize=7, ha='center', va='center', rotation = 270,
+                    bbox=dict(facecolor='white', alpha=1, edgecolor='none', boxstyle='round,pad=0.3'))
+
 
     
     def Linear(self, x:float,m:float,b:float):return m*x+b
@@ -332,7 +370,7 @@ class HMS_ImagePredictor:
         ax.set_xlim(X2,X1) #limit from L-> R if looking from grating to mosaic.
         ax.set_ylim(Y2,Y1)
 
-    def _plot_on_mosaicwindow(self, ax, betas, gamma, wls, Tape2Grating,Mosaic = True, Mesurements:bool=True):
+    def _plot_on_mosaicwindow(self, ax, betas, gamma, wls, Tape2Grating,Mosaic = True, Measurements:bool=True,savefig:bool=True):
         for widx, wl in enumerate(wls):
             w = str(int(wl * 10))  # nm -> A
 
@@ -366,8 +404,7 @@ class HMS_ImagePredictor:
             
             # ax.annotate(f'[{int(wl*10)} A,{self.orders[midx]}]',xy,xytext,rotation = 270,va='top', ha = 'center',fontsize = 8)
         
-         #To plot just the Mosaic
-        
+        #To plot just the Mosaic
         X1 = self.deg2mm(self.alpha,fl=self.fprime) - self.hmsParamDict['SlitA2FarEdgemm'] #mm
         X2 = X1 + self.MosaicWindowWidthmm #mm
         
@@ -407,46 +444,6 @@ class HMS_ImagePredictor:
         #test for the difference between horizontal line at gamma = 90 and the middle seam of mosiac. they should be right on top of eachother.
         # ax.axhline(self.g0,linewidth = lw, linestyle = ls,color ='orange')
         # print(Y2_w + self.wlParamDict['6563']['PanelHeightmm'] - self.g0)
-        
-    
-        def annotate_width(lenmm,x_start,y0,wl,toppanel:bool=True,measurement:bool=Mesurements):
-            if toppanel:
-                ymin = 0.5
-                ymax  = 1
-                ha='left'
-                va='bottom'
-                y = y0-12
-                
-            else:
-                ymin = 0
-                ymax = 0.5
-                ha='left'
-                va='bottom'
-                y = y0 - 12
-            ax.axvline(x = x_start,ymin=ymin,ymax =ymax,linewidth = lw, linestyle = ls,color =c)
-            plt.text(x_start+lenmm-.5,y,f'Panel:{wl} A',color='black', fontsize=7, ha=ha, va=va, rotation = 90,
-                        bbox=dict(facecolor='white', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.3'))
-            xy = (x_start,y0)
-            xytext = (x_start + lenmm,y0)
-            if measurement:
-                plt.annotate('', xy=xy, xytext=xytext, 
-                            arrowprops=dict(arrowstyle='<->', color='black', lw=1))
-                plt.text(x_start + lenmm/2, y0, f'{lenmm:.2f} mm',
-                        color='black', fontsize=7, ha='center', va='center',
-                        bbox=dict(facecolor='white', alpha=1, edgecolor='none', boxstyle='round,pad=0.3'))
-            
-        def annotate_height(lenmm,y_start,x0,measurement:bool=Mesurements):
-            ax.axhline(y = y_start+lenmm,linewidth = lw, linestyle = ls,color =c)
-            xy = (x0,y_start)
-            xytext = (x0,y_start+lenmm)
-            if measurement:
-                plt.annotate('', xy=xy, xytext=xytext, 
-                            arrowprops=dict(arrowstyle='<->', color='black', lw=1))
-                plt.text(x0,y_start + lenmm/5, f'{lenmm:.2f} mm',
-                        color='black', fontsize=7, ha='center', va='center', rotation = 270,
-                        bbox=dict(facecolor='white', alpha=1, edgecolor='none', boxstyle='round,pad=0.3'))
-
-        
         if Mosaic:
             #Bottom Panel of Mosaic------------------------------------
             idx = 1
@@ -457,16 +454,14 @@ class HMS_ImagePredictor:
             wls = list(self.hmsParamDict['MosaicFilters'][idx])
             wls.reverse()
             height = self.wlParamDict[wls[idx]]['PanelHeightmm']
-            annotate_height(height,y_bottom, heightlabel)
+            self.annotate_height(ax,height,y_bottom, heightlabel,lw,ls,c,Measurements)
             for wl in wls:
                 wdict = self.wlParamDict[wl]
                 lenmm = float(wdict['PanelWidthmm'])
                 x_bottom -= lenmm
-                annotate_width(lenmm,x_bottom,widthlabel,wl,False)
-            
-            
-            
-            #top Pabel of Mosaic---------------------------------------
+                self.annotate_width(ax,lenmm,x_bottom,widthlabel,wl,lw,ls,c,Measurements,False)
+                
+            #top Panel of Mosaic---------------------------------------
             idx = 0
             widthlabel = self.g0 + self.MosaicWindowHeightmm/4 #mm, height at which the panel width label should be at.
             heightlabel = self.deg2mm(self.alpha,fl=self.fprime) - self.hmsParamDict['SlitA2FarEdgemm']*0.95 #mm, width at which the panel height label should be at.
@@ -476,14 +471,15 @@ class HMS_ImagePredictor:
             y_bottom = Y2_w + self.wlParamDict[wls[idx]]['PanelHeightmm'] #top edge
             wls = list(self.hmsParamDict['MosaicFilters'][idx])
             wls.reverse()
-            annotate_height(height,y_bottom,heightlabel)
+            self.annotate_height(ax,height,y_bottom,heightlabel,lw,ls,c,Measurements)
             for wl in wls:
                 wdict = self.wlParamDict[wl]
                 lenmm = float(wdict['PanelWidthmm'])
                 x_top -= lenmm
-                annotate_width(lenmm,x_top,widthlabel,wl)
-            
-        plt.savefig(f"hms{self.hmsVersion.upper()}_Mosaic_Measurements.png")
+                self.annotate_width(ax,lenmm,x_top,widthlabel,wl,lw,ls,c,Measurements)
+        
+        if savefig:    
+            plt.savefig(f"hms{self.hmsVersion.upper()}_Mosaic_Measurements.png")
         
     def _plot_on_detector(self, ax, betas, gamma, wls, Tape2Grating,fprime = None):
         if fprime is not None:
@@ -620,7 +616,6 @@ class HMS_ImagePredictor:
             and hydrogen':wl = [656.3, 486.1]
         """        
         plt.figure()
-       
         plt.title(f"HiT&MIS {self.hmsVersion}")
         cidx = np.arange(50,90,1) #make it 101 after
         #True line spacing
@@ -639,55 +634,17 @@ class HMS_ImagePredictor:
         plt.ylabel("observed line Spacing, ds' [mm]")
         plt.legend()
     
-    # def fit_fprime(self,element:str, alp:Iterable):
-    #     """_summary_
-
-    #     Args:
-    #         element (str): Oxygen lines or Hydrogen lines
-    #         alp (Iterable): Alphas at which the model matched observed img order of 'oxygen': wl= [630.0,557.7]
-    #         and hydrogen':wl = [656.3, 486.1]
-    #     """        
-    #     plt.figure()
-    #     if element.lower() in 'hydrogen':
-    #         wl = [656.3, 486.1]
-    #         # if self.hmsVersion == 'a':alp = [67.58,67.4]
-    #         # elif self.hmsVersion == 'b':alp = [66.57,66.76]
-    #         version = self.hmsVersion.upper()
-    #         plt.title("HiT&MIS {version} \nHydrogen Lines \n ds = s(Halpha) - s(Hbeta)")
-    #     elif element.lower() in 'oxygen':
-    #         wl= [630.0,557.7] #wl of oxygen lines, hydrogen lines
-    #         # alp = [67.575,67.48] #alpha where observed matches model
-    #         version = self.hmsVersion.upper()
-    #         plt.title("HiT&MIS {version} \nOxygen Lines \n ds = s(red) - s(green)")
-        
-    #     cidx = np.arange(50,90,1) #make it 101 after
-
-    #     #True line spacing
-    #     ds = self.line_spacing(wl,cidx=cidx,observed=False) 
-    #     print(ds)
-    #     #Observed Line Spacing
-    #     ds_prime = self.line_spacing(wl,alp,cidx,True) 
-
-    #     def fitfunc(ds:float,fprime:float):return(fprime*ds/400)
-
-    #     popt,pcov = curve_fit(fitfunc, ds,ds_prime)
-        
-    #     plt.scatter(ds,ds_prime,marker='x', color ='red', s = 5)
-    #     plt.plot(ds,fitfunc(ds,popt[0]), label = f"Slope (f') = {popt[0]:.3f}")
-    #     plt.xlabel("True line Spacing, ds [mm]")
-    #     plt.ylabel("observed line Spacing, ds' [mm]")
-    #     plt.legend()
 
 
 
 
 #%%
-# predictor = HMS_ImagePredictor(hmsVersion='a',mgammadeg=90,alpha=68.3)
+# predictor = HMS_ImagePredictor(hmsVersion='bo',mgammadeg=90,alpha=66.45)
 
-# # # %%
-# img = predictor.plot_spectral_lines('MosaicWindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3], mosaic=True,measurement=True)
+# %%
+# img = predictor.plot_spectral_lines('MosaicWindow',True,wls = np.arange(774.1,788.4), mosaic=True,measurement=False)
 
-# # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=False)
+# img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3,656.8,481,644,786.0,782.1,780.8,652.2,654.4,653.3, 774.4], mosaic=True,measurement=True)
 
 #%%
 # img = predictor.plot_spectral_lines('Mosaicwindow',True,wls = [557.7, 630.0,427.8, 784.1,777.4,486.1,656.3])
