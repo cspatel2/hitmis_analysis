@@ -13,6 +13,7 @@ from skimage import exposure
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
 from PIL import Image
+from glob import glob
 
 def get_path(directory: str, prefix:str = None,suffix:str = None, wl:str =None )-> str:
     #build absolute path
@@ -37,21 +38,7 @@ def get_path(directory: str, prefix:str = None,suffix:str = None, wl:str =None )
         datadir += f'{wl}.nc'
     return datadir
 
-def get_tindex(t:Iterable,start:datetime, end:datetime) -> Iterable: return np.where((t >= start) & (t<= end))[0]
 
-def open_fits(fn:str,timestamp:bool=True)-> np.array | np.array:
-    """opens fits file using astropy.io.fits
-    Args:
-        fn (str): file path.
-
-    Returns:
-        tuple (np.array,np.array): image of shape (n,m) , list of headers.
-    """       
-    with fits.open(fn) as hdul:
-        data = hdul[1].data
-        header = hdul[1].header
-    if timestamp: return np.array(data) , int(hdul[1].header['HIERARCH TIMESTAMP'])
-    else: return np.array(data)
 
 def load_pickle_file(fn:str):
     """
@@ -67,44 +54,6 @@ def load_pickle_file(fn:str):
         dat = pickle.load(file)
     return dat
 
-
-def format_time(timestamp:str, input_format:str = '%Y%m%d_%H%M%S')-> str:
-    """ Converts a time string from its original format to MM-YY-YYYY HH-MM-SS. 
-
-    Args:
-        timestamp (str): timestamp string.
-        input_format (str, optional): timestamp string format. Defaults to '%Y%m%d_%H%M%S'.
-
-    Returns:
-        str: the time in format: '%Y-%m-%d %H:%M:%S'
-    """    
-    dt = datetime.strptime(timestamp, input_format)
-    output_format = '%m-%d-%Y %H:%M:%S'
-    formatted_str = dt.strftime(output_format)
-    return formatted_str
-
-def time_from_tstamp(ts:int) -> datetime:
-    """convert timestamp in ms to datetime object.
-    timstamp can be obtained from filename or file attribute.
-
-    Args:
-        ts (int): timestamp in s.
-
-    Returns:
-        _type_: datetime.datetime object
-    """    
-    return datetime.fromtimestamp(ts*0.001)
-
-def timestamp_from_fn(fn:str) -> int:
-    """Get timestamp from the filename. This is used for file names with the format: hitmis_XXms_0_0_XXXXXXXXXXXXX.fit'
-
-    Args:
-        fn (str): file name with format: 'hitmis_XXms_0_0_XXXXXXXXXXXXX.fit'
-
-    Returns:
-        int: timestamp in ms
-    """    
-    return int(fn.rstrip('.fit').split('_')[-1])
 
 def open_eclipse_data(img:str|np.ndarray, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,savefits:bool= False,savepng:bool=False, plot:bool=False):
     """
@@ -164,3 +113,69 @@ def open_eclipse_data(img:str|np.ndarray, crop_xpix:int = 96, crop_ypix:int = 96
         plt.show()
         
     return final_img_data
+
+def read_metadata(metadata_file:str)-> dict:
+    """converts metadata .txt file to dict. This func is used in conjuction with png_to_fits() for images taken with the ASIStudio software using the ZWO camera.
+
+    Args:
+        metadata_file (str): path of metadata .txt (or .PNG.txt) file.
+
+    Returns:
+        dict: metadata.
+    """    
+    metadata = {}
+    with open(metadata_file, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            # Skip empty lines and the header line
+            if line.strip() and not line.startswith('['):
+                key, value = line.strip().split(' = ', 1)
+                metadata[key] = value
+    return metadata
+
+def png_to_fits(png_file:str, metadata_file:str, fits_file:str) -> None:
+    """converts .png images to .fits files. This func is made for for images taken with the ASIStudio software using the ZWO camera.
+
+    Args:
+        png_file (str): path of .png (or .PNG) file.
+        metadata_file (str): path of metadata .txt (or .PNG.txt) file.
+        fits_file (str): path of .fits file
+    """ 
+    if not os.path.exists(fits_file):     
+        # Read image
+        image = Image.open(png_file)
+        image_data = np.array(image)
+
+        # Create FITS primary HDU
+        hdu = fits.PrimaryHDU(image_data)
+
+        # Read metadata and add to header
+        metadata = read_metadata(metadata_file)
+        for key, value in metadata.items():
+            hdu.header[key] = value
+
+        # Write to FITS file
+        hdu.writeto(fits_file, overwrite=True)
+        print(f"FITS file '{fits_file}' created successfully.")
+    else: print(f"skipping: FITS file '{fits_file}' already exists.")
+
+def convert_png2fits_dir(fdir:str) -> None:
+    """ converts dir of .pngs and .txt (metadata) to combined fits files. This func is made for for images taken with the ASIStudio software using the ZWO camera.
+
+    Args:
+        fdir (str): path to directory that holds dirs of .png files.
+    """    
+    subdirs = glob(os.path.join(fdir,'*'))
+    for fdir in subdirs:
+        imgdir = os.path.join(fdir,'*.PNG')
+        metadir = os.path.join(fdir,'*.PNG.txt')
+        fnames = glob(imgdir) 
+        metafnames = glob(metadir) 
+        print(len(fnames),len(metafnames))
+        fnames.sort()
+        metafnames.sort()
+        for i in range(len(fnames)):
+            png_file = fnames[i]
+            metadata_file = metafnames[i]
+            fits_file = png_file.replace('.PNG','.fits')
+            png_to_fits(png_file, metadata_file, fits_file)

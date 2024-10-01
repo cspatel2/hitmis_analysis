@@ -18,7 +18,7 @@ panel = np.array(mapping.panelgrid)
 wls = np.array(mapping.lambdagrid)
 
 #%%
-resolution = mapping.get_resolution_grid(slitwidth=50)
+resolution = mapping.get_resolution_grid(slitwidth=25)
 
 
 # %%

@@ -1,6 +1,7 @@
 #%%
 import numpy as np
 from collections.abc import Iterable
+import itertools
 
 
 
@@ -46,4 +47,16 @@ def correct_unit_of_angle(angle:float, convert_to:str) ->float:
         if convert_to.lower() in "radians":
             return np.deg2rad(angle)
         else:
-            return angle
+            return angle\
+
+def flatten_list(listxd:list)-> list:
+    """ Flattens an unevely shappend multi-demnesional list to a 1D list.
+
+    Args:
+        list2d (list): multi-demnsional list.
+
+    Returns:
+        list: Flattened list.
+    """    
+    return list(itertools.chain.from_iterable(listxd))
+# %%
