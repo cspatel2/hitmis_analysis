@@ -133,13 +133,23 @@ def read_metadata(metadata_file:str)-> dict:
                 metadata[key] = value
     return metadata
 
-def png_to_fits(png_file:str, metadata_file:str, fits_file:str) -> None:
+def png_to_fits(png_file:str, fits_file:str, metadata_file:None) -> None:
     """converts .png images to .fits files. This func is made for for images taken with the ASIStudio software using the ZWO camera.
 
     Args:
         png_file (str): path of .png (or .PNG) file.
-        metadata_file (str): path of metadata .txt (or .PNG.txt) file.
         fits_file (str): path of .fits file
+        metadata_file (None): if none, no header will be added. Note: if images are taken with  ASIStudio software using the SWO camera, the metadata file is of the form .PNG.txt. If providing self created files, it should be a .txt files wher values are denoted clearly in the form [name] = [value]. Each varirable should be on a new line.
+
+    Raises:
+        ValueError: _description_
+    """    
+    """
+
+    Args:
+        png_file (str): 
+        metadata_file (str): path of metadata .txt (or .PNG.txt) file.
+        fits_file (str): 
     """ 
     if not os.path.exists(fits_file):     
         # Read image
@@ -150,9 +160,13 @@ def png_to_fits(png_file:str, metadata_file:str, fits_file:str) -> None:
         hdu = fits.PrimaryHDU(image_data)
 
         # Read metadata and add to header
-        metadata = read_metadata(metadata_file)
-        for key, value in metadata.items():
-            hdu.header[key] = value
+        if metadata_file != None: # if a path is given, add header
+            if os.path.exists(metadata_file):
+                metadata = read_metadata(metadata_file)
+                for key, value in metadata.items():
+                    hdu.header[key] = value
+            else: raise ValueError("metadata_file does not exist.")
+        #else no header
 
         # Write to FITS file
         hdu.writeto(fits_file, overwrite=True)
