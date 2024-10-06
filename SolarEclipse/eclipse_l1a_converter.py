@@ -1,158 +1,225 @@
 #%% Level 1A converter - Level 1A (L1A) data are reconstructed, unprocessed instrument data at full resolution, time-referenced, and annotated with ancillary information, including radiometric and geometric calibration coefficients and georeferencing parameters (e.g., platform ephemeris) computed and appended but not applied to L0 data.
 
 #%%
-from sqlite3 import Timestamp
+import argparse
+from datetime import datetime
+import lzma
+import os
+import pickle
+import sys
 import matplotlib.pyplot as plt
 import numpy as np 
 from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
 from hmspython.Diffraction._Pixel2wlMapping import MapPixel2Wl
 from hmspython.Utils import _files
 from hmspython.Utils import _Utility
+from hmspython.Utils import _time
 from glob import glob
 import astropy.io.fits as fits
 import xarray as xr
 from tqdm import tqdm
-# %%
-#for each file 
-
-# 1. open .fits file
-    #collect img, exposure, timestamp,gain
-# 2. straighten img
-# 3. store in a ds that can be saved as 
 #%% 
-imgdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_SolarSpectra/20240507/*.fit'
-fnames = glob(imgdir)
-print(len(fnames))
-fn = fnames[50]
+# %% Paths
+# rootdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_EclipseRaw/EclipseDay/'
+PATH = os.path.dirname(os.path.realpath(__file__))
+IMGSIZE = 1024
+# %% Argument Parser
+parser = argparse.ArgumentParser(
+    description='Convert HiT&MIS L0 data to L1 data, with exposure normalization and Dark subtraction. It  using HMS_ImgPredictor()(hmspython.Diffraction._ImgPredictor) and  MapPixel2WL() (from hmspython.Diffraction._Pixel2wlMapping) to extact ROI and performs line straightening. This program will not work without hmsParams.pkl and hmsWlParams.pkl present.')
+# %% Add arguments
+parser.add_argument('rootdir',
+                    metavar='rootdir',
+                    type=str,
+                    help='Root directory containing HiT&MIS data')
+# parser.add_argument('dest',
+#                     nargs='?',
+#                     default=os.getcwd(),
+#                     help='Root directory where L1 data will be stored')
+parser.add_argument('dest_prefix',
+                    nargs='?',
+                    default=os.getcwd(),
+                    help='Prefix of final L1 data file name')
+parser.add_argument('--wl',
+                    required=False,
+                    type=float,
+                    help='Wavelength to process')
+
+
+# %% Get all subdirs
+def list_all_dirs(root):
+    flist = os.listdir(root)
+    # print(flist)
+    out = []
+    subdirFound = False
+    for f in flist:
+        if os.path.isdir(root + '/' + f):
+            subdirFound = True
+            out += list_all_dirs(root + '/' + f)
+    if not subdirFound:
+        out.append(root)
+    return out
+
+
+def getctime(fname):
+    words = fname.rstrip('.fit').split('_')
+    return int(words[-1])
+
 #%%
-# #%%
-predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45)
-#%%
+args = parser.parse_args()
+
+# 1. Get files ##################################################3
+
+# Get Root directory
+rootdir = args.rootdir
+if not os.path.isdir(rootdir):
+    print('Specified root directory for L0 data does not exist.')
+    sys.exit()
+#Get list of all directories within root directory
+dirlist = list_all_dirs(rootdir)  
+#get list of .fit files in all directories sorted by ucttime 
+filelist = []
+for d in dirlist:
+    if d is not None:
+        f = glob(d+'/*.fit')
+        f.sort(key=getctime)
+        filelist.append(f)
+#flatten list of files
+flat_filelist = []
+for f in filelist:
+    for img in f:
+        flat_filelist.append(img)
+        
+print(f'Number of fits files to process: {len(flat_filelist)}')
+if len(flat_filelist) == 0:
+    raise ValueError('No .fit files in provided rootdir.')
+
+flist = flat_filelist
+flist.sort(key=getctime)
+# Get timeframe
+start_date = datetime.fromtimestamp(getctime(flist[0])*0.001)
+end_date = datetime.fromtimestamp(getctime(flist[-1])*0.001)
+print('First image:', start_date)
+print('Last image:', end_date)
+print('\n')
+#############################################################
+
+# 2. Initialize ############################################
+
+#intialize model
+predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45,IMGSIZE)
+
+#Initialize wl 
+wl = args.wl
+    #check that its a valid wl for this mosaic
+wl_str = str(int(wl*10))
+wlarr_str = _Utility.flatten_list(predictor.hmsParamDict['MosaicFilters']) #wl in str(Angstrom)
+wlarr_nm = [int(x)/10 for x in wlarr_str] #wl in float(nm)
+
+if wl_str not in wlarr_str:#wl in str(Angstrom)
+    raise ValueError(f'Invalid wl, must be one of the following: {wlarr_nm}')
+print(f'Processing ROI: {wl} nm')
+
+#Inititalize wlmapper
 mapping = MapPixel2Wl(predictor)
-#%%
 
-#Inititalize parameters
+#Initialize Dark data dict
+darkPATH = '../hitmis_pipeline/pixis_dark_bias.xz'
+with lzma.open(darkPATH, 'rb') as dfile:
+    darkDict = pickle.load(dfile)
+
+#Initialize varirable arrays to fill
 tstamps,times,exposures,gains,camtemps = [],[],[],[],[]
+simgs = [] # straightened imgs
 
-wls_str = _Utility.flatten_list(predictor.hmsParamDict['MosaicFilters']) #wl in str(Angstrom)
-
-imgDict = {el:[] for el in wls_str} #dict of straighted imgs
-wlaxisDict = {el:[] for el in wls_str} #dict of wlaxis
-
-wl_iter = [int(x)/10 for x in wls_str] #wl in nm
-#%%
-for fidx,fn in enumerate(fnames[:5]):
+# 3. Process Images 
+for fidx,fn in enumerate(tqdm(flist)):
     with fits.open(fn) as hdul:
         header = hdul[1].header
         tstamp = int(header['HIERARCH TIMESTAMP']) #ms
         tstamps.append(tstamp)
-        times.append(_files.time_from_tstamp(tstamp))#datetime object
-        exposure = int(header['HIERARCH EXPOSURE_MS'])
-        exposures.append(exposure) #ms
+        times.append(_time.time_from_tstamp(tstamp))#datetime object
+        exposure = int(header['HIERARCH EXPOSURE_MS'])*1e-3 #ms -> s
+        exposures.append(exposure) 
         gains.append(header['GCOUNT'])
         camtemps.append(float(header['CCDTEMP'])) #degrees Celcius
-        data = hdul[1].data
-        data = _files.open_eclipse_data(data) #crop and resize img to 3008x3008
-        data =data/(exposure*1e-3) # [ADU/s]
-        for wl in tqdm(wl_iter):
-            simg,img,wlaxis = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=1.25,plot=False)
-            wlstr = str(int(wl*10))
-            imgDict[wlstr].append(simg)
-            if fidx == 0: wlaxisDict[wlstr] += list(wlaxis)
+        
+        #1. get img
+        data = np.asarray(hdul[1].data,dtype = float) #counts
+        #2. dark/bais correct img
+        data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
+        #3. crop and resize img to IMGSIZE
+        data = _files.open_eclipse_data(data,imgsize=IMGSIZE) #counts
+        #4. total counts -> counts/sec
+        data = data/exposure
+        #5. straighten ROI within img
+        simg,img,wlax = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=1.25,plot=False)
+        simgs.append(simg) #counts; shape(fidx, IMGSIZE, IMGSIZE)
+        #6. Save wlaxis (reference axis that the img is straighted to.)
+        if fidx == 0: 
+            wlaxis = wlax
+            pix_y = np.arange(np.shape(simg)[0]) 
 
-            
-        
-        
-        
-#%%
-# %%
+
+# 4. Create Dataset and Save
+createdtime = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
+attr_time = str(createdtime) + ' EST'
 ds = xr.Dataset(
     data_vars=dict(
-        img=(["tstamp","wavelength", "pix_y"], data),
+        img=(("tstamp","pix_y","wavelength"), np.asarray(simgs,dtype=float),
+             {'Description': 'Dark-subtracted straightened images',
+              'units': 'ADU/nm/s'
+                   })
     ),
     coords=dict(
-        tstamp = ("tstamp",tstamp),
-        wavelength = ("wavelength", wlaxis),
-        pix_y = ("pix_y", pix_y),
-        gain = ('tstamp',gains),
-        exposure = ('tstamp', exposures),
-        camtemp = ('tstamp', camtemps),
-        time = ('tstamp', times )
-
-
+        tstamp = ("tstamp",np.asarray(tstamps,dtype = int),
+                  {'Description': 'timestamp',
+                   'units': 's'
+                   }),
+        wavelength = ("wavelength", np.asarray(wlaxis, dtype =float),
+                  {'Description': 'Reference wavelength [x]axis that img is straighted with.',
+                   'units': 'nm'
+                   }),
+        pix_y = ("pix_y", np.asarray(pix_y,dtype=int),
+                  {'Description': 'Detector Pixel Position in Y [rows] ',
+                   'units': 'Pixel Postion Y'
+                   }),
+        gain = ('tstamp',np.asarray(gains,dtype=int),
+                  {'Description': 'Camera gain',
+                   'units': 'electrons/ADU'
+                   }),
+        exposure = ('tstamp', np.asarray(exposures, dtype=float),
+                  {'Description': 'Exposure time of img',
+                   'units': 's'
+                   }),
+        camtemp = ('tstamp', np.asarray(camtemps,dtype=int),
+                  {'Description': 'Camera temperature',
+                   'units': 'Degree Celsius'
+                   }),
+        # time = ('tstamp', np.asarray(times,dtype='datetime64[ns]'),
+        #           {'Description': 'Time as datetime',
+        #            'units': 'UTC'
+        #            })
     ),
-    attrs=dict(description="HMS A - Eclipse data."),
-)
+    attrs=dict(Description="HMS A - Straightened Eclipse data.",
+               ROI = f'{str(wl)} nm',
+               CreationDate =  attr_time
+))
+
+# destdir = args.dest
+prefix = args.dest_prefix
+
+yymmdd = int(start_date.strftime("%Y%m%d"))
+
+outfname = f"{prefix}_{yymmdd}_{wl_str}.nc"
+
+print('Saving %s...\t' % (outfname), end='')
+sys.stdout.flush()
+
+ds.to_netcdf(outfname)
+print('Done.')
+
+#%%
+ds = xr.open_dataset('Eclipse_20240408_5577.nc')
+# # %%
+# ds
 # %%
-a = ['a', 'b', 'c']
-tdict = {el:[] for el in a}
-# %%
-
-
-# %%
-import concurrent.futures
-import xarray as xr
-from astropy.io import fits
-from tqdm import tqdm
-
-# Initialize parameters
-tstamps, times, exposures, gains, camtemps = [], [], [], [], []
-
-wls_str = _Utility.flatten_list(predictor.hmsParamDict['MosaicFilters'])  # wl in str(Angstrom)
-wl_iter = [int(x)/10 for x in wls_str]  # wl in nm
-
-# Function to process a single panel
-def process_panel(panel_idx, wl, data, exposure):
-    simg, img, wlaxis = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=1.25, plot=False)
-    wlstr = str(int(wl * 10))
-    return wlstr, simg, wlaxis
-
-# Function to save data to NetCDF
-def save_to_netcdf(wlstr, data, wlaxis, tstamp, gains, exposures, camtemps, times):
-    ds = xr.Dataset(
-        data_vars=dict(
-            img=(["tstamp", "pix_y"], data),
-        ),
-        coords=dict(
-            tstamp=("tstamp", tstamp),
-            wavelength=("wavelength", wlaxis),
-            pix_y=("pix_y", range(data.shape[1])),
-            gain=('tstamp', gains),
-            exposure=('tstamp', exposures),
-            camtemp=('tstamp', camtemps),
-            time=('tstamp', times)
-        ),
-        attrs=dict(description="HMS A - Eclipse data.")
-    )
-    ds.to_netcdf(f'panel_{wlstr}.nc')
-
-# Main processing loop
-for fidx, fn in enumerate(fnames[:5]):
-    with fits.open(fn) as hdul:
-        header = hdul[1].header
-        tstamp = int(header['HIERARCH TIMESTAMP'])  # ms
-        tstamps.append(tstamp)
-        times.append(_files.time_from_tstamp(tstamp))  # datetime object
-        exposure = int(header['HIERARCH EXPOSURE_MS'])
-        exposures.append(exposure)  # ms
-        gains.append(header['GCOUNT'])
-        camtemps.append(float(header['CCDTEMP']))  # degrees Celsius
-        data = hdul[1].data
-        data = _files.open_eclipse_data(data)  # crop and resize img to 3008x3008
-        data = data / (exposure * 1e-3)  # [ADU/s]
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
-            for wl in wl_iter:
-                futures.append(executor.submit(process_panel, panel_idx, wl, data, exposure))
-            
-            for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-                wlstr, simg, wlaxis = future.result()
-                imgDict[wlstr].append(simg)
-                if fidx == 0:
-                    wlaxisDict[wlstr] = wlaxis
-
-# Save each panel to a NetCDF file
-for wlstr, img_list in imgDict.items():
-    data = np.stack(img_list)  # Stack images along a new axis
-    save_to_netcdf(wlstr, data, wlaxisDict[wlstr], tstamps, gains, exposures, camtemps, times)

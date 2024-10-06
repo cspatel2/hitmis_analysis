@@ -36,11 +36,16 @@ fnames = glob(imgdir)
 print(len(fnames))
 fn = fnames[50]
 #%%
+with fits.open(fn) as hdul:
+    data = hdul[1].data
+    header = hdul[1].header
+#%%
 # fn = fnames[2145] # eclipse
 
-predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45)
+predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45,1024)
 mapping = MapPixel2Wl(predictor)
-img_data = open_eclipse_data(fn)
+#%%
+img_data = open_eclipse_data(fn,imgsize=1024)
 #%%
 s = mapping.straighten_img(wavelength=486.1, img=img_data, rotate_deg=1.25)
 #%%

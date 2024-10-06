@@ -54,6 +54,19 @@ def load_pickle_file(fn:str):
         dat = pickle.load(file)
     return dat
 
+def open_fits(fn:str,timestamp:bool=True)-> np.array | np.array:
+    """opens fits file using astropy.io.fits
+    Args:
+        fn (str): file path.
+
+    Returns:
+        tuple (np.array,np.array): image of shape (n,m) , list of headers.
+    """       
+    with fits.open(fn) as hdul:
+        data = hdul[1].data
+        header = hdul[1].header
+    if timestamp: return np.array(data) , int(hdul[1].header['HIERARCH TIMESTAMP'])
+    else: return np.array(data)
 
 def open_eclipse_data(img:str|np.ndarray, crop_xpix:int = 96, crop_ypix:int = 96,mirror:bool=True,imgsize:int = 3008,normalize:bool = False,savefits:bool= False,savepng:bool=False, plot:bool=False):
     """
@@ -73,15 +86,14 @@ def open_eclipse_data(img:str|np.ndarray, crop_xpix:int = 96, crop_ypix:int = 96
     Returns:
         np.array: HMS img
     """ 
-    if isinstance(img,Iterable): img_data = img   
+    if isinstance(img,(np.ndarray,list)): img_data = img   
     elif isinstance(img,str):
-        if os.path.exists(img): img_data,_ = open_fits(img)
+        if os.path.exists(img): img_data= open_fits(img,False)
         else: raise ValueError(f"img path '{img}' does not exist. ")
     else: raise ValueError("img must be valid file path or 2D img array.")
-    
     if normalize: img_data = exposure.equalize_hist(img_data)
     cropped_img_data = img_data[:-crop_ypix, :-crop_xpix]
-    # Resize the cropped image to 3008x3008 pixels
+    # Resize the cropped image to mgsize pixels
     zoom_factor = (imgsize / cropped_img_data.shape[0], imgsize/ cropped_img_data.shape[1])
     resized_img_data = zoom(cropped_img_data, zoom_factor, order=3)  # order=3 for cubic interpolation
     if mirror: #image at detector
