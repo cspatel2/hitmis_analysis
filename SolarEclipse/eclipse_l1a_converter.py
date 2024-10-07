@@ -168,7 +168,15 @@ ds = xr.Dataset(
         img=(("tstamp","pix_y","wavelength"), np.asarray(simgs,dtype=float),
              {'Description': 'Dark-subtracted straightened images',
               'units': 'ADU/nm/s'
-                   })
+                   }),
+        exposure = ('tstamp', np.asarray(exposures, dtype=float),
+                  {'Description': 'Exposure time of img',
+                   'units': 's'
+                   }),
+        camtemp = ('tstamp', np.asarray(camtemps,dtype=int),
+                  {'Description': 'Camera temperature',
+                   'units': 'Degree Celsius'
+                   }),
     ),
     coords=dict(
         tstamp = ("tstamp",np.asarray(tstamps,dtype = int),
@@ -187,14 +195,6 @@ ds = xr.Dataset(
                   {'Description': 'Camera gain',
                    'units': 'electrons/ADU'
                    }),
-        exposure = ('tstamp', np.asarray(exposures, dtype=float),
-                  {'Description': 'Exposure time of img',
-                   'units': 's'
-                   }),
-        camtemp = ('tstamp', np.asarray(camtemps,dtype=int),
-                  {'Description': 'Camera temperature',
-                   'units': 'Degree Celsius'
-                   }),
         # time = ('tstamp', np.asarray(times,dtype='datetime64[ns]'),
         #           {'Description': 'Time as datetime',
         #            'units': 'UTC'
@@ -204,6 +204,7 @@ ds = xr.Dataset(
                ROI = f'{str(wl)} nm',
                CreationDate =  attr_time
 ))
+encoding = {var: {'zlib': True} for var in ds.data_vars}
 
 # destdir = args.dest
 prefix = args.dest_prefix
@@ -219,7 +220,3 @@ ds.to_netcdf(outfname)
 print('Done.')
 
 #%%
-ds = xr.open_dataset('Eclipse_20240408_5577.nc')
-# # %%
-# ds
-# %%

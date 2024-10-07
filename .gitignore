@@ -2,3 +2,5 @@ data
 .vscode
 hitmis_Instrument/Images
 **/*.nc
+**/build
+**/*egg-info
