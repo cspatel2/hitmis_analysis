@@ -1,96 +1,123 @@
-#%% plots total counts in a panel over time. 
+#%% 
 from __future__ import annotations 
 from collections.abc import Iterable
+from astropy.io import fits
 import numpy as np
-import xarray as xr
 import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
-import tqdm
+from tqdm import tqdm
 import  os
 from glob import glob
 from datetime import datetime
-import subprocess
-from matplotlib.ticker import FuncFormatter
 import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import difflib
 
 # %% Functions 
-PATH = os.path.dirname(os.path.realpath(__file__))
-datadir = os.path.join(PATH,"../hms1_FoxHall_L1A/*")
-wl = 4861.
-if isinstance(wl, (int,float,str)):
-    wl = int(wl)
-    datadir += f'{wl}.nc'
 
-files = glob(datadir)
-# %%
-def get_tindex(t:Iterable,start:datetime, end:datetime) -> Iterable: return np.where((t >= start) & (t<= end))[0]
 
 # %%
+def clip_percentile(image, lower_percentile=1, upper_percentile=99):
+    """Clips the image to the specified percentiles."""
+    lower_bound = np.percentile(image, lower_percentile)
+    upper_bound = np.percentile(image, upper_percentile)
+    return np.clip(image, lower_bound, upper_bound)
 #%%
-fig,ax = plt.subplots(figsize=(5,5))
-div = make_axes_locatable(ax)
-cax = div.append_axes('right', '5%', '5%')
-cax.set_label('Counts/Sec', rotation=270, labelpad=15)
-
-ax.set_xlabel("Wavelegnth (nm)")
-
-
-hh_mm = DateFormatter('%H:%M')
-
-
-ax.set_title(f"{wl} nm Panel")
-
-ims = []
-for i in range(10):
-    im = ax.imshow(ds.imgs[i].values,  aspect='auto')
-    fig.colorbar(im, cax=cax)
-
-    ax.set_xticks(np.arange(im.shape[1]))
-    ax.set_yticks(np.arange(im.shape[0]))
-
+# %%
+def animate(files: list, start_time:np.datetime64 = None,end_time:np.datetime64 = None, title_prefix: str = '',save_filename: str = 'anim.mp4',bitmode = 16 ):
+    
+    if start_time == None: 
+        with fits.open(files[0]) as hdul:
+            header = hdul[1].header
+            tstamp = header['TIMESTAMP']*0.001
+            start_time = datetime.fromtimestamp(tstamp)
+            
+    if end_time == None: 
+        with fits.open(files[-1]) as hdul:
+            header = hdul[1].header
+            tstamp = header['TIMESTAMP']*0.001
+            end_time = datetime.fromtimestamp(tstamp)
+    
+    with fits.open(fnames[0]) as hdul:
+        header = hdul[1].header
+    expstr = difflib.get_close_matches('EXPOSURE', list(header))[0]
+    if '_US' in expstr: to_sec = 1e-6
+    elif '_MS' in expstr: to_sec = 1e-3
     
 
-    ims.append([im])
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    fig.set_tight_layout(True)
+    ax.set_aspect('equal')
+
+    div = make_axes_locatable(ax)
+    cax = div.append_axes('right', '5%', '5%')
+    
+    frames = []
+    times = []
+    if bitmode < 16: bitscale = 2^bitmode
+    else: bitscale = 1
+    for i,fn in enumerate(tqdm(files)):
+        with fits.open(fn) as hdul:
+            data = hdul[1].data
+            data = clip_percentile(data)
+            header = hdul[1].header
+            tstamp = header['TIMESTAMP']*0.001
+            exposure = header[expstr]*to_sec
+        time = datetime.fromtimestamp(tstamp)
+        if time >= start_time and time <= end_time: #post sunset
+            times.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+            frame = (data)/exposure
+            frame = np.asarray(frame)*bitscale
+            frames.append(frame)
+        
+    f0 = frames[0]
+    t0 = times[0]
+    im = ax.imshow(f0)
+    cbar = fig.colorbar(im, cax=cax, label='Counts/s')
+    tx = ax.set_title('{title} : {time}'.format(title = title_prefix,time = t0))
+
+    def animate_update(i) -> list:
+        arr = frames[i]
+        im.set_data(arr)
+        im.set_clim(vmin=arr.min(), vmax=arr.max())
+        timestr = times[i]
+        tx.set_text('{title} : {time}'.format(title = title_prefix,time = timestr))
+        cbar.update_normal(im)
+        return [im, tx, cbar]
+    
+    anim = animation.FuncAnimation(fig, animate_update, frames=len(frames), interval=1000, repeat_delay=1000, blit=False,)
+    anim.save(save_filename,fps = 5,extra_args=['-vcodec', 'libx264']) 
+
+    print('Done!')
 
 
-ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
-                                repeat_delay=1000)
-
-
-writervideo = animation.FFMpegWriter(fps=5) 
-ani.save(f'{wl}.mp4', writer=writervideo) 
-plt.close() 
-# plt.show()
 # %%
-fig, ax = plt.subplots(figsize = (5,5))
-ax.imshow(ds.imgs[1].values, aspect = 'auto')
-div = make_axes_locatable(ax)
-cax = div.append_axes('right', '5%', '5%')
-ax.set_xticks(np.arange(np.shape(ds.imgs[1].values)[-1])[::30], ds.imgs[1].wl.values[::30])
+################ HMS B OCT AURORA #################################
+# datadir = "../data/hms2_OctAurora/*.fit"
+# def get_tstamp(fn):return int(fn.strip('.fit').split('_')[-1])*0.001
+# fnames = glob(datadir)
+# fnames = sorted(fnames,key=get_tstamp)
+# print(len(fnames))
+
+# name = 'OctAurora_hms2_20241006_postsunset.mp4'
+# start = datetime(2024,10,6,18,20,0)
+# animate(fnames,start,None,'HiT&MIS B',name) 
+#%%
+# ############### HMS A OCT AURORA #################################
+datadir = "../data/hms1_OctAurora/*.fits"
+fnames = glob(datadir)
+fnames.sort()
+print(len(fnames))
+
+name = 'OctAurora_hms1_20241006_postsunset.mp4'
+start = datetime(2024,10,6,18,20,0)
+end = datetime(2024,10,6,23,54,5)
+
+animate(fnames,start,None,'HiT&MIS A',name, bitmode=8)
+
+
+
+    
+    
+
 # %%
-
-# Generate some example data
-data = np.random.random((10, 10))
-
-
-xticks = ds.imgs[1].wl.values
-
-
-
-
-ax.set_yticklabels(np.arange(data.shape[0]))
-
-# Format the x-tick labels to display only two decimal places
-formatter = FuncFormatter(lambda x, pos: f'{xticks[int(x)]:.2f}')
-ax.xaxis.set_major_formatter(formatter)
-
-# Set the x-tick labels
-ax.set_xticklabels([f'{val:.2f}' for val in xticks])
-
-# Auto-adjust tick parameters
-plt.xticks(rotation='auto')
-plt.yticks(rotation='auto')
-
-# Display the plot
-plt.show()

@@ -4,3 +4,5 @@ hitmis_Instrument/Images
 **/*.nc
 **/build
 **/*egg-info
+**/*.mp4
+

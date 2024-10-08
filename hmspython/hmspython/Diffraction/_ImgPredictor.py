@@ -418,17 +418,17 @@ class HMS_ImagePredictor:
         # Y1_w = Y1 + 3.2
         # Y2_w = Y2 -1.94 
         #y postion adjusted by ledge height
-        toppanel_wls = list(self.hmsParamDict['MosaicFilters'][1])
+        toppanel_wls = list(self.hmsParamDict['MosaicFilters'][0])
         wdict = self.wlParamDict[toppanel_wls[0]]
         Y1_w = Y1 + (wdict['PanelHeightmm'] - wdict['PanelWindowHeightmm'])
         
         #y postion adjusted by ledge height
-        bottompanel_wls = list(self.hmsParamDict['MosaicFilters'][0])
+        bottompanel_wls = list(self.hmsParamDict['MosaicFilters'][1])
         wdict = self.wlParamDict[bottompanel_wls[0]]
         Y2_w = Y2 - (wdict['PanelHeightmm'] - wdict['PanelWindowHeightmm'])
         
         ax.set_xlim(X2_w,X1_w) #limit from L-> R if looking from grating to mosaic.
-        ax.set_ylim(Y2_w,Y1_w)
+        ax.set_ylim(Y2_w,Y1_w) #limist from Bottom to top
 
             
         ls = '--'
@@ -472,6 +472,7 @@ class HMS_ImagePredictor:
             y_bottom = Y2_w + self.wlParamDict[wls[idx]]['PanelHeightmm'] #top edge
             wls = list(self.hmsParamDict['MosaicFilters'][idx])
             wls.reverse()
+            height = self.wlParamDict[wls[idx]]['PanelHeightmm']
             self.annotate_height(ax,height,y_bottom,heightlabel,lw,ls,c,Measurements)
             for wl in wls:
                 wdict = self.wlParamDict[wl]
