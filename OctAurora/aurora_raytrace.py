@@ -14,9 +14,7 @@ from hmspython.Utils._files import *
 from hmspython.Utils._Utility import *
 
 from hmspython.Diffraction._Pixel2wlMapping import MapPixel2Wl
-from skimage.transform import warp
-
-from hitmis_View.animate import clip_percentile
+import skimage.transform 
 
 #%%
 def get_tstamp(fn):return int(fn.strip('.fit').split('_')[-1])*0.001
@@ -33,10 +31,12 @@ with fits.open(fn) as hdul:
     header = hdul[1].header
 #%%
 cropped_data = data[100:-160,50:-68]
+img = transform.rotate(cropped_data,2,cval = np.nan, preserve_range=True)
+#%%%
 img_data = open_eclipse_data(cropped_data,crop_xpix=1,crop_ypix=1,imgsize = 1024,plot=True) 
 #%%
 
-predictor = HMS_ImagePredictor('bo',66.45,50, 90+2,1024)
+predictor = HMS_ImagePredictor('bo',66.45,50, 90,1024)
 # mapping = MapPixel2Wl(predicto
 # s = mapping.straighten_img(wavelength=486.1, img=img_data, rotate_deg=1.25)
 #%%
@@ -51,31 +51,49 @@ plt.show()
 # %% Current HMS A img
 ######################################################################################################################################################
 
-fdir = '../data/hms1_OctAurora/*.fits'
+
+# get a list of files
+fdir = '../data/hms1_OctAurora/*.fit*'
 fnames = glob(fdir)
 fnames.sort()
 print(len(fnames))
 #%%
-predictor = HMS_ImagePredictor('a',67.4,50,mgammadeg=90)
+#initialize predictor
+predictor = HMS_ImagePredictor('a',67.43,50,mgammadeg=90-.05,pix = 1024)
 
-#%%
-fn = fnames[10]
+#open file
+fn = fnames[392]
+print(fn)
 with fits.open(fn) as hdul:
     data = hdul[1].data
     header = hdul[1].header
-# %%
-fig = predictor.plot_spectral_lines(ImageAt='MosaicWindow', Tape2Grating=True,wls=[557.7,486.1, 427.8, 557.7, 630, 656.3, 777.4],fprime = 449.70,measurement=True)
+    tstamp = header['TIMESTAMP']*0.001
+    timestr = datetime.fromtimestamp(tstamp)
+    print(timestr)
+
+#resize to 1024
+zoom_factor = (1024 / data.shape[0], 1024/ data.shape[1])
+resized_img_data = zoom(data, zoom_factor, order=3)
+
+
+#overlay img and model
+data = resized_img_data
+fig = predictor.plot_spectral_lines(ImageAt='Detector', Tape2Grating=True,wls=[557.7,486.1, 427.8, 557.7, 630, 656.3, 777.4],fprime = 442.9,measurement=True)
 plt.axhline(predictor.g0,linewidth = .5, linestyle = '--',color ='orange')
-# plt.axhline()
-# plt.imshow(data,cmap = 'Greys',vmax = 570)
-# plt.colorbar()
-# %%
-#%%
+plt.imshow(data,cmap = 'pink', vmax = 200)
+plt.colorbar()
+
+#Inititalize mapping
 mapping = MapPixel2Wl(predictor)
-#%%
-simg,img,wlaxis = mapping.straighten_img(wavelength = 630.0, img = fn, rotate_deg=0.1) #rotation = 0.75
-# %%
-plt.imshow(simg,vmax = 800, aspect = 'auto')
-plt.axvline(112, color = 'white', linewidth = 0.5)
+
+#Straighten img
+wl = 630.0
+simg,img,wlaxis = mapping.straighten_img(wavelength = wl, img = data, rotate_deg = .1) #rotation = 0.75
+
+#plot a bigger version of straightened img
+plt.imshow(simg,vmax = 100, aspect = 'auto')
+plt.axvline(find_nearest(wlaxis,wl)[0], color = 'white', linewidth = 0.5)
+plt.colorbar()
+plt.title(f'{wl} nm')
 # %%
 

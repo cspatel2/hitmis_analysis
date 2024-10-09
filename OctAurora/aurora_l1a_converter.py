@@ -2,11 +2,12 @@
 
 #%%
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import lzma
 import os
 import pickle
 import sys
+from astropy.utils.diff import difflib
 import matplotlib.pyplot as plt
 import numpy as np 
 from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
@@ -18,11 +19,12 @@ from glob import glob
 import astropy.io.fits as fits
 import xarray as xr
 from tqdm import tqdm
+from skimage.transform import zoom  
 #%% 
 # %% Paths
 # rootdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_EclipseRaw/EclipseDay/'
 PATH = os.path.dirname(os.path.realpath(__file__))
-IMGSIZE = 1024
+
 # %% Argument Parser
 parser = argparse.ArgumentParser(
     description='Convert HiT&MIS L0 data to L1 data, with exposure normalization and Dark subtraction. It  using HMS_ImgPredictor()(hmspython.Diffraction._ImgPredictor) and  MapPixel2WL() (from hmspython.Diffraction._Pixel2wlMapping) to extact ROI and performs line straightening. This program will not work without hmsParams.pkl and hmsWlParams.pkl present.')
@@ -44,6 +46,13 @@ parser.add_argument('--wl',
                     type=float,
                     help='Wavelength to process')
 
+#%% Change for each observation type before running
+HMSVERSION =  'a' #hms version
+ALPHA = 67.43 #incidence angle of light from Slit A
+NUM_ORDERS= 75 # number of diffraction orders to calc
+MGAMMADEG: float = 90-0.05 # gamma at middle
+IMGSIZE = 1024 # detector size
+IMG_ROTATION = 0.1 #img rotation
 
 # %% Get all subdirs
 def list_all_dirs(root):
@@ -101,12 +110,18 @@ end_date = datetime.fromtimestamp(getctime(flist[-1])*0.001)
 print('First image:', start_date)
 print('Last image:', end_date)
 print('\n')
+
+with fits.open(flist[0]) as hdul:
+    header = hdul[1].header
+expstr = difflib.get_close_matches('EXPOSURE', list(header))[0]
+if '_US' in expstr: TO_SEC = 1e-6
+elif '_MS' in expstr: TO_SEC = 1e-3
 #############################################################
 
 # 2. Initialize ############################################
 
 #intialize model
-predictor = HMS_ImagePredictor('ae',67.32,50, 90-0.45,IMGSIZE)
+predictor = HMS_ImagePredictor(hmsVersion=HMSVERSION, alpha= ALPHA, num_orders=NUM_ORDERS,mgammadeg=MGAMMADEG,pix=IMGSIZE)
 
 #Initialize wl 
 wl = args.wl
@@ -123,9 +138,13 @@ print(f'Processing ROI: {wl} nm')
 mapping = MapPixel2Wl(predictor)
 
 #Initialize Dark data dict
-darkPATH = '../hitmis_pipeline/pixis_dark_bias.xz'
-with lzma.open(darkPATH, 'rb') as dfile:
-    darkDict = pickle.load(dfile)
+# darkPATH = '../hitmis_pipeline/pixis_dark_bias.xz'
+# with lzma.open(darkPATH, 'rb') as dfile:
+#     darkDict = pickle.load(dfile)
+
+#each nc file should contain frames from midnight to midnight
+current_start_time = datetime(start_date.year,start_date.month,start_date.day,0,0,0)
+current_end_time = current_start_time + timedelta(days=1)
 
 #Initialize varirable arrays to fill
 tstamps,times,exposures,gains,camtemps = [],[],[],[],[]
@@ -135,25 +154,32 @@ simgs = [] # straightened imgs
 for fidx,fn in enumerate(tqdm(flist)):
     with fits.open(fn) as hdul:
         header = hdul[1].header
-        tstamp = int(header['HIERARCH TIMESTAMP']) #ms
+        tstamp = int(header['TIMESTAMP'])*0.001 #ms -> s
         tstamps.append(tstamp)
         times.append(_time.time_from_tstamp(tstamp))#datetime object
-        exposure = int(header['HIERARCH EXPOSURE_MS'])*1e-3 #ms -> s
+        exposure = int(header['HIERARCH EXPOSURE_MS'])*TO_SEC # xs -> s
         exposures.append(exposure) 
         gains.append(header['GCOUNT'])
         camtemps.append(float(header['CCDTEMP'])) #degrees Celcius
         
         #1. get img
         data = np.asarray(hdul[1].data,dtype = float) #counts
-        #2. dark/bais correct img
-        data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
+
+        # #2. dark/bais correct img
+        # data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
+        
         #3. crop and resize img to IMGSIZE
-        data = _files.open_eclipse_data(data,imgsize=IMGSIZE) #counts
+        if np.shape(data) != (IMGSIZE,IMGSIZE): 
+            zoom_factor = (IMGSIZE / data.shape[0], IMGSIZE/ data.shape[1])
+            data = zoom(data, zoom_factor, order=3)
+
         #4. total counts -> counts/sec
         data = data/exposure
+
         #5. straighten ROI within img
-        simg,img,wlax = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=1.25,plot=False)
+        simg,img,wlax = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=IMG_ROTATION,plot=False)
         simgs.append(simg) #counts; shape(fidx, IMGSIZE, IMGSIZE)
+        
         #6. Save wlaxis (reference axis that the img is straighted to.)
         if fidx == 0: 
             wlaxis = wlax
