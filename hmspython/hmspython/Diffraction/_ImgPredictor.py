@@ -1,5 +1,6 @@
 #%%
 from __future__ import annotations
+from typing import SupportsFloat as Numeric
 import os
 import matplotlib
 import numpy as np
@@ -9,20 +10,25 @@ from tqdm import tqdm
 import astropy.io.fits as pf
 from scipy.optimize import curve_fit
 from skimage import exposure
-from hmspython.Utils._files import load_pickle_file
-from hmspython.Utils._Utility import correct_unit_of_angle
+import json
+
+from ..Utils._files import load_pickle_file
+from ..Utils._Utility import correct_unit_of_angle
+from ..Utils import HmsParams, HmsSysParam, HmsWlParam, HmsInstr
 #%%
 # %%
 
 class HMS_ImagePredictor:
-    def __init__(self, hmsVersion: str, alpha: float = 83.5, num_orders: int = 75, mgammadeg: float = 90, pix: int = 3008):
+    def __init__(self, hmsVersion: str, alpha: Numeric = 83.5, num_orders: int = 75, mgammadeg: Numeric = 90, pix: int = 3008, img_rot: Numeric = 0):
         self.hmsVersion = hmsVersion.lower()
         self.alpha = alpha
         self.num_orders = num_orders
         self.mgammadeg = mgammadeg
         self.pix = pix
+        self.img_rot = img_rot
 
         # Select parameter dictionaries based on HMS version
+        load_json = False
         script_dir = os.path.dirname(__file__)
         if self.hmsVersion == 'a': #latest version of hmsA
             hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsA_Params.pkl')
@@ -30,17 +36,37 @@ class HMS_ImagePredictor:
         elif self.hmsVersion == 'ae': #hmsA used at eclipse
             hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAEclipse_Params.pkl')
             hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAEclipse_wlParams.pkl')
+        elif self.hmsVersion == 'ao': #hmsA prepared for ORIGIN (OH + aurora mosaic)
+            hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAOrigin_Params.pkl')
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsAOrigin_wlParams.pkl')
         elif self.hmsVersion == 'b': #Latest Version of hmsB
             hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsB_Params.pkl')
             hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsB_wlParams.pkl')
         elif self.hmsVersion == 'bo': #hmsB prepared for ORIGIN (OH + aurora mosaic)
             hmsParamDict_path = os.path.join(script_dir, 'hmsParams/hmsBOrigin_Params.pkl')
-            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsBOrigin_wlParams.pkl')        
+            hmswlParamDict_path = os.path.join(script_dir, 'hmsParams/hmsBOrigin_wlParams.pkl')
+        elif os.path.exists(hmsVersion) and os.path.splitext(hmsVersion)[-1].lower() == '.json': # this is a path to a file, can we load from here?
+            load_json = True
         else:
-            raise ValueError('Invalid HMS version. Please choose "a", "b", "ae" , "bo" .')
+            raise ValueError('Invalid HMS version. Please choose "a", "b", "ae" ,"ao", "bo" .')
         
-        self.hmsParamDict = load_pickle_file(hmsParamDict_path)
-        self.wlParamDict = load_pickle_file(hmswlParamDict_path)
+        if not load_json:
+            self.hmsParamDict = load_pickle_file(hmsParamDict_path)
+            self.wlParamDict = load_pickle_file(hmswlParamDict_path)
+        else:
+            with open(hmsVersion, 'r') as ifile:
+                data = ifile.read()
+                params = HmsParams.schema().loads(data)
+                self.hmsParamDict = params.to_dict()['SysParam']
+                self.wlParamDict = params.to_dict()['WlParam']
+                self.hmsVersion = self.hmsParamDict['hmsVersion']
+                if params.InstParam is not None:
+                    instparam: HmsInstr = params.InstParam
+                    self.alpha = instparam.alpha
+                    self.num_orders = instparam.max_ord
+                    self.mgammadeg = instparam.mgamma_deg
+                    self.pix = instparam.imgsz
+                    self.img_rot = instparam.imgrot
         # Initialize other parameters
         self.f = self.hmsParamDict['FlCollimator']  # focal length of collimator slit -> grating
         self.fprime = self.hmsParamDict['FlPrimeCamera']   # focal length of collimator grating -> mosaic
@@ -358,6 +384,12 @@ class HMS_ImagePredictor:
             for midx, m in enumerate(self.orders):
                 beta_plot = betas[widx][aidx][midx][gmask]
                 ax.plot(beta_plot, gamma_plot, self.ls, markersize=self.ms, color=color, linewidth=self.lw)
+
+                idx = int(0.8*len(beta_plot))
+                xy = (beta_plot[idx],gamma_plot[-30])
+                xytext = (beta_plot[idx]-.75,gamma_plot[idx]+4)
+                slitnum = int(wdict['SlitNum'])
+                ax.annotate(f'[{slitnum}, {int(wl*10)} A]',xy,xytext,rotation = 270,va='top', ha = 'center',fontsize = 8)
         
          #To plot just the Mosaic
         X1 = self.deg2mm(self.alpha,fl=self.fprime) - self.hmsParamDict['SlitA2FarEdgemm'] #mm

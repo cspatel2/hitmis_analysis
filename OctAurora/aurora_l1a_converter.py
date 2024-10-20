@@ -19,7 +19,7 @@ from glob import glob
 import astropy.io.fits as fits
 import xarray as xr
 from tqdm import tqdm
-from skimage.transform import zoom  
+import skimage.transform as transform
 #%% 
 # %% Paths
 # rootdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_EclipseRaw/EclipseDay/'
@@ -54,6 +54,9 @@ MGAMMADEG: float = 90-0.05 # gamma at middle
 IMGSIZE = 1024 # detector size
 IMG_ROTATION = 0.1 #img rotation
 
+args = parser.parse_args()
+prefix = args.dest_prefix
+
 # %% Get all subdirs
 def list_all_dirs(root):
     flist = os.listdir(root)
@@ -69,12 +72,18 @@ def list_all_dirs(root):
     return out
 
 
-def getctime(fname):
-    words = fname.rstrip('.fit').split('_')
-    return int(words[-1])
+# def getctime(fname):
+#     words = fname.rstrip('.fit').split('_')
+#     return int(words[-1])
+
+#**************** This function gets replaced based on the files maybe?
+def getctime(fn): # get timestamp from .fits file
+    with fits.open(fn) as hdul:
+        header = hdul[1].header
+    return(int(header['TIMESTAMP']))
 
 #%%
-args = parser.parse_args()
+
 
 # 1. Get files ##################################################3
 
@@ -89,7 +98,7 @@ dirlist = list_all_dirs(rootdir)
 filelist = []
 for d in dirlist:
     if d is not None:
-        f = glob(d+'/*.fit')
+        f = glob(d+'/*.fit*')
         f.sort(key=getctime)
         filelist.append(f)
 #flatten list of files
@@ -100,22 +109,22 @@ for f in filelist:
         
 print(f'Number of fits files to process: {len(flat_filelist)}')
 if len(flat_filelist) == 0:
-    raise ValueError('No .fit files in provided rootdir.')
+    raise ValueError('No .fit* files in provided rootdir.')
 
 flist = flat_filelist
 flist.sort(key=getctime)
 # Get timeframe
-start_date = datetime.fromtimestamp(getctime(flist[0])*0.001)
-end_date = datetime.fromtimestamp(getctime(flist[-1])*0.001)
+start_date = datetime.fromtimestamp(getctime(flist[0]))
+end_date = datetime.fromtimestamp(getctime(flist[-1]))
 print('First image:', start_date)
 print('Last image:', end_date)
 print('\n')
 
 with fits.open(flist[0]) as hdul:
     header = hdul[1].header
-expstr = difflib.get_close_matches('EXPOSURE', list(header))[0]
-if '_US' in expstr: TO_SEC = 1e-6
-elif '_MS' in expstr: TO_SEC = 1e-3
+    tempstr = 'CCD-TEMP'
+    if tempstr not in list(header.keys()): tempstr  = tempstr.replace('-','')   
+    del hdul   
 #############################################################
 
 # 2. Initialize ############################################
@@ -144,108 +153,137 @@ mapping = MapPixel2Wl(predictor)
 
 #each nc file should contain frames from midnight to midnight
 current_start_time = datetime(start_date.year,start_date.month,start_date.day,0,0,0)
-current_end_time = current_start_time + timedelta(days=1)
+print(f'current start time: = {current_start_time}')
 
-#Initialize varirable arrays to fill
-tstamps,times,exposures,gains,camtemps = [],[],[],[],[]
-simgs = [] # straightened imgs
+while current_start_time <= end_date:
+    
+    yymmdd = int(current_start_time.strftime("%Y%m%d"))
+    outfname = f"{prefix}_{yymmdd}_{wl_str}.nc"
+    if os.path.exists(outfname): 
+        print(f'{outfname} already exists. skipping.')
+        current_start_time = current_end_time
+        continue  
+    
+    current_end_time = current_start_time + timedelta(days=1)
+    print(f'current end time: = {current_end_time}')
+    
 
-# 3. Process Images 
-for fidx,fn in enumerate(tqdm(flist)):
-    with fits.open(fn) as hdul:
-        header = hdul[1].header
-        tstamp = int(header['TIMESTAMP'])*0.001 #ms -> s
-        tstamps.append(tstamp)
-        times.append(_time.time_from_tstamp(tstamp))#datetime object
-        exposure = int(header['HIERARCH EXPOSURE_MS'])*TO_SEC # xs -> s
-        exposures.append(exposure) 
-        gains.append(header['GCOUNT'])
-        camtemps.append(float(header['CCDTEMP'])) #degrees Celcius
-        
-        #1. get img
-        data = np.asarray(hdul[1].data,dtype = float) #counts
+    #Initialize varirable arrays to fill
+    tstamps,times,exposures,gains,camtemps = [],[],[],[],[]
+    simgs = [] # straightened imgs
+    
+    current_files = [file for file in flist if current_start_time<= datetime.fromtimestamp(getctime(file)) <= current_end_time]
+    print(len(current_files))
+    
+    # 3. Process Images 
+    for fidx,fn in enumerate(tqdm(current_files)):
+        with fits.open(fn) as hdul:
+            header = hdul[1].header
+            tstamp = int(header['TIMESTAMP']) #ms -> s
+            tstamps.append(tstamp)
+            times.append(_time.time_from_tstamp(tstamp))#datetime object
+            
+            #get Exposure
+            expstr = difflib.get_close_matches('EXPOSURE', list(header))[0]
+            if '_US' in expstr: 
+                TO_SEC = 1e-6
+                exposure = int(header[expstr])*TO_SEC #ms -> s
+            elif '_MS' in expstr: 
+                TO_SEC = 1e-3
+                exposure = int(header[expstr])*TO_SEC #ms -> s
+            else: 
+                hdrcomm = np.asarray(header.comments)
+                exp_ns = header[np.where(hdrcomm == 'Exposure time (ns)')[0][0]]
+                TO_SEC = 1e-9
+                exp_s = header[np.where(hdrcomm == 'Exposure time (s)')[0][0]]
+                exposure = exp_s + (exp_ns*TO_SEC)
+    
+            exposures.append(exposure)
+            gains.append(header['GAIN'])
+            camtemps.append(float(header[tempstr])) #degrees Celcius
+            
+            #1. get img
+            data = np.asarray(hdul[1].data,dtype = float) #counts
 
-        # #2. dark/bais correct img
-        # data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
-        
-        #3. crop and resize img to IMGSIZE
-        if np.shape(data) != (IMGSIZE,IMGSIZE): 
-            zoom_factor = (IMGSIZE / data.shape[0], IMGSIZE/ data.shape[1])
-            data = zoom(data, zoom_factor, order=3)
+            # #2. dark/bais correct img
+            # data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
+            
+            #3. crop and resize img to IMGSIZE
+            if np.shape(data) != (IMGSIZE,IMGSIZE): 
+                scale_factor = (IMGSIZE / data.shape[0], IMGSIZE/ data.shape[1])
+                data = transform.rescale(data,scale_factor,order = 3)
+                # data = transform.zoom(data, zoom_factor, order=3)
 
-        #4. total counts -> counts/sec
-        data = data/exposure
+            #4. total counts -> counts/sec
+            data = data/exposure
 
-        #5. straighten ROI within img
-        simg,img,wlax = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=IMG_ROTATION,plot=False)
-        simgs.append(simg) #counts; shape(fidx, IMGSIZE, IMGSIZE)
-        
-        #6. Save wlaxis (reference axis that the img is straighted to.)
-        if fidx == 0: 
-            wlaxis = wlax
-            pix_y = np.arange(np.shape(simg)[0]) 
+            #5. straighten ROI within img
+            simg,img,wlax = mapping.straighten_img(wavelength=wl, img=data, rotate_deg=IMG_ROTATION,plot=False)
+            simgs.append(simg) #counts; shape(fidx, IMGSIZE, IMGSIZE)
+            
+            #6. Save wlaxis (reference axis that the img is straighted to.)
+            if fidx == 0: 
+                wlaxis = wlax
+                pix_y = np.arange(np.shape(simg)[0]) 
 
 
-# 4. Create Dataset and Save
-createdtime = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
-attr_time = str(createdtime) + ' EST'
-ds = xr.Dataset(
-    data_vars=dict(
-        img=(("tstamp","pix_y","wavelength"), np.asarray(simgs,dtype=float),
-             {'Description': 'Dark-subtracted straightened images',
-              'units': 'ADU/nm/s'
-                   })
-    ),
-    coords=dict(
-        tstamp = ("tstamp",np.asarray(tstamps,dtype = int),
-                  {'Description': 'timestamp',
-                   'units': 's'
-                   }),
-        wavelength = ("wavelength", np.asarray(wlaxis, dtype =float),
-                  {'Description': 'Reference wavelength [x]axis that img is straighted with.',
-                   'units': 'nm'
-                   }),
-        pix_y = ("pix_y", np.asarray(pix_y,dtype=int),
-                  {'Description': 'Detector Pixel Position in Y [rows] ',
-                   'units': 'Pixel Postion Y'
-                   }),
-        gain = ('tstamp',np.asarray(gains,dtype=int),
-                  {'Description': 'Camera gain',
-                   'units': 'electrons/ADU'
-                   }),
-        exposure = ('tstamp', np.asarray(exposures, dtype=float),
-                  {'Description': 'Exposure time of img',
-                   'units': 's'
-                   }),
-        camtemp = ('tstamp', np.asarray(camtemps,dtype=int),
-                  {'Description': 'Camera temperature',
-                   'units': 'Degree Celsius'
-                   }),
-        # time = ('tstamp', np.asarray(times,dtype='datetime64[ns]'),
-        #           {'Description': 'Time as datetime',
-        #            'units': 'UTC'
-        #            })
-    ),
-    attrs=dict(Description="HMS A - Straightened Eclipse data.",
-               ROI = f'{str(wl)} nm',
-               CreationDate =  attr_time
-))
+    # 4. Create Dataset and Save
+    createdtime = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
+    attr_time = str(createdtime) + ' EST'
+    ds = xr.Dataset(
+        data_vars=dict(
+            img=(("tstamp","pix_y","wavelength"), np.asarray(simgs,dtype=float),
+                {'Description': 'Dark-subtracted straightened images',
+                'units': 'ADU/nm/s'
+                    })
+        ),
+        coords=dict(
+            tstamp = ("tstamp",np.asarray(tstamps,dtype = int),
+                    {'Description': 'timestamp',
+                    'units': 's'
+                    }),
+            wavelength = ("wavelength", np.asarray(wlaxis, dtype =float),
+                    {'Description': 'Reference wavelength [x]axis that img is straighted with.',
+                    'units': 'nm'
+                    }),
+            pix_y = ("pix_y", np.asarray(pix_y,dtype=int),
+                    {'Description': 'Detector Pixel Position in Y [rows] ',
+                    'units': 'Pixel Postion Y'
+                    }),
+            gain = ('tstamp',np.asarray(gains,dtype=int),
+                    {'Description': 'Camera gain',
+                    'units': 'electrons/ADU'
+                    }),
+            exposure = ('tstamp', np.asarray(exposures, dtype=float),
+                    {'Description': 'Exposure time of img',
+                    'units': 's'
+                    }),
+            camtemp = ('tstamp', np.asarray(camtemps,dtype=int),
+                    {'Description': 'Camera temperature',
+                    'units': 'Degree Celsius'
+                    }),
+            # time = ('tstamp', np.asarray(times,dtype='datetime64[ns]'),
+            #           {'Description': 'Time as datetime',
+            #            'units': 'UTC'
+            #            })
+        ),
+        attrs=dict(Description="HMS A - Straightened October Aurora data.",
+                ROI = f'{str(wl)} nm',
+                CreationDate =  attr_time
+    ))
 
-# destdir = args.dest
-prefix = args.dest_prefix
-
-yymmdd = int(start_date.strftime("%Y%m%d"))
-
-outfname = f"{prefix}_{yymmdd}_{wl_str}.nc"
-
-print('Saving %s...\t' % (outfname), end='')
-sys.stdout.flush()
-
-ds.to_netcdf(outfname)
-print('Done.')
+    # destdir = args.dest
+    
+    print('Saving %s...\t' % (outfname), end='')
+    sys.stdout.flush()
+    # ds.to_netcdf(os.path.join(destdir,outfname))
+    ds.to_netcdf(outfname)
+    
+    print(f'Saved .nc file for: {yymmdd}')
+    current_start_time = current_end_time
 
 #%%
-ds = xr.open_dataset('Eclipse_20240408_5577.nc')
+# ds = xr.open_dataset('Aurora_20241005_5577.nc')
 # # %%
 # ds
 # %%
