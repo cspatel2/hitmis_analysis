@@ -1,1 +1,98 @@
-{"SysParam": {"hmsVersion": "A", "FlCollimator": 400, "FlPrimeCamera": 443.401, "SlitLengthmm": 55.29, "SlitLengthdeg": 7.8698411725696245, "sigma": 10125.5569, "relSlitPositionmm": 21.43, "SlitA2FarEdgemm": 63.35, "SlitA2CloseEdgemm": 13.83, "MosaicWidthmm": 52.5, "MosaicHeightmm": 55.19, "MosaicWindowWidthmm": 49.52, "MosaicWindowHeightmm": 50.05, "MosaicFilters": [["4278", "6300", "5577", "7774"], ["6563", "4861"]]}, "WlParam": {"5577": {"wl": 557.7, "color": "green", "SlitNum": 2, "DiffractionOrder": 33, "PanelLetter": "b", "PanelWindowWidthmm": 10.1, "PanelWidthmm": 10.1, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 27.919999999999998}, "6300": {"wl": 630.0, "color": "Red", "SlitNum": 2, "DiffractionOrder": 29, "PanelLetter": "c", "PanelWindowWidthmm": 9.7, "PanelWidthmm": 9.7, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 27.919999999999998}, "7774": {"wl": 777.4, "color": "plum", "SlitNum": 1, "DiffractionOrder": 24, "PanelLetter": "a", "PanelWindowWidthmm": 12.22, "PanelWidthmm": 12.22, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 27.919999999999998}, "4278": {"wl": 427.8, "color": "blue", "SlitNum": 1, "DiffractionOrder": 43, "PanelLetter": "d", "PanelWindowWidthmm": 17.5, "PanelWidthmm": 20.18, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 27.919999999999998}, "6563": {"wl": 656.3, "color": "Darkred", "SlitNum": 3, "DiffractionOrder": 28, "PanelLetter": "f", "PanelWindowWidthmm": 18.83, "PanelWidthmm": 21.509999999999998, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 26.96}, "4861": {"wl": 486.1, "color": "cyan", "SlitNum": 4, "DiffractionOrder": 38, "PanelLetter": "e", "PanelWindowWidthmm": 30.69, "PanelWidthmm": 30.69, "PanelWindowHeightmm": 25.02, "PanelHeightmm": 26.96}}, "InstParam": null}
+{
+    "SysParam": {
+        "hmsVersion": "A",
+        "FlCollimator": 400,
+        "FlPrimeCamera": 443.401,
+        "SlitLengthmm": 55.29,
+        "SlitLengthdeg": 7.8698411725696245,
+        "sigma": 10125.5569,
+        "relSlitPositionmm": 21.43,
+        "SlitA2FarEdgemm": 63.35,
+        "SlitA2CloseEdgemm": 13.83,
+        "MosaicWidthmm": 52.5,
+        "MosaicHeightmm": 55.19,
+        "MosaicWindowWidthmm": 49.52,
+        "MosaicWindowHeightmm": 50.05,
+        "MosaicFilters": [
+            [
+                "4278",
+                "6300",
+                "5577",
+                "7774"
+            ],
+            [
+                "6563",
+                "4861"
+            ]
+        ]
+    },
+    "WlParam": {
+        "5577": {
+            "wl": 557.7,
+            "color": "green",
+            "SlitNum": 2,
+            "DiffractionOrder": 33,
+            "PanelLetter": "b",
+            "PanelWindowWidthmm": 10.1,
+            "PanelWidthmm": 10.1,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
+        },
+        "6300": {
+            "wl": 630.0,
+            "color": "Red",
+            "SlitNum": 2,
+            "DiffractionOrder": 29,
+            "PanelLetter": "c",
+            "PanelWindowWidthmm": 9.7,
+            "PanelWidthmm": 9.7,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
+        },
+        "7774": {
+            "wl": 777.4,
+            "color": "plum",
+            "SlitNum": 1,
+            "DiffractionOrder": 24,
+            "PanelLetter": "a",
+            "PanelWindowWidthmm": 12.22,
+            "PanelWidthmm": 12.22,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
+        },
+        "4278": {
+            "wl": 427.8,
+            "color": "blue",
+            "SlitNum": 1,
+            "DiffractionOrder": 43,
+            "PanelLetter": "d",
+            "PanelWindowWidthmm": 17.5,
+            "PanelWidthmm": 20.18,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
+        },
+        "6563": {
+            "wl": 656.3,
+            "color": "Darkred",
+            "SlitNum": 3,
+            "DiffractionOrder": 28,
+            "PanelLetter": "f",
+            "PanelWindowWidthmm": 18.83,
+            "PanelWidthmm": 21.509999999999998,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 26.96
+        },
+        "4861": {
+            "wl": 486.1,
+            "color": "cyan",
+            "SlitNum": 4,
+            "DiffractionOrder": 38,
+            "PanelLetter": "e",
+            "PanelWindowWidthmm": 30.69,
+            "PanelWidthmm": 30.69,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 26.96
+        }
+    },
+    "InstParam": null
+}

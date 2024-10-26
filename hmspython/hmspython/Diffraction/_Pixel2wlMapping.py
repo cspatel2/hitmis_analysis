@@ -1,14 +1,34 @@
 # %%
 from __future__ import annotations
 from typing import Optional, SupportsFloat as Numeric
-import numpy as np
-import matplotlib.pyplot as plt
-from ..Diffraction._ImgPredictor import HMS_ImagePredictor
-from ..Utils._files import *
-from ..Utils._Utility import *
-from glob import glob
-from skimage import transform
+import astropy.io.fits as pf
 import os
+from skimage import transform
+from glob import glob
+import matplotlib.pyplot as plt
+import numpy as np
+import sys
+
+import skimage
+
+
+def in_notebook():
+    """
+    Returns ``True`` if the module is running in IPython kernel,
+    ``False`` if in IPython shell or other Python shell.
+    """
+    return 'ipykernel' in sys.modules
+# %%
+
+
+if not in_notebook():
+    from ..Diffraction._ImgPredictor import HMS_ImagePredictor
+    from ..Utils._files import *
+    from ..Utils._Utility import *
+else:
+    from hmspython.Diffraction._ImgPredictor import HMS_ImagePredictor
+    from hmspython.Utils._files import *
+    from hmspython.Utils._Utility import *
 # %%
 
 
@@ -26,15 +46,68 @@ class MapPixel2Wl:
         self.gammagrid = self.get_gamma_grid()
         print('Calculating Beta...')
         self.betagrid = self.get_beta_grid()
+        print('Beta grid shape:', self.betagrid.shape)
         print('Calculating Panel...')
         self.panelgrid = self.get_value_grid('wl')
         print('Calculating Alpha...')
         self.alphagrid = self.get_value_grid('alpha')
         print('Calculating Order of diffraction...')
         self.ordergrid = self.get_value_grid('diffractionOrder')
-        print('Calculating wavelength map...')
-        self.lambdagrid = self.get_lambda_grid()
+        print('Calculating the transforms...', end=' ')
+        sys.stdout.flush()
+        self.lambdagrid = None
+        wavelengths = [int(x) for x in self.wlParamDict.keys()]
+        wavelengths.sort()
+        xforms = {}
+        for wl in wavelengths:
+            print(wl, end='.. ')
+            sys.stdout.flush()
+            # Chose the target wl array closest to beta = 90 deg to straighted img against.
+            gamma_grid = self.extract_wlpanel(wl, self.gammagrid)
+            gidx, _ = find_nearest(gamma_grid[:, 50], self.ip.mgammadeg)
+            target_beta = self.extract_wlpanel(wl, self.betagrid)
+            target_beta = target_beta[gidx, :]
+            alpha = self.extract_wlpanel(wl, self.alphagrid)[0, 0]
+            order = self.extract_wlpanel(wl, self.ordergrid)[0, 0]
+            bmin = target_beta.min()
+            bmax = target_beta.max()
+            target_lam = self.calc_lamda_gratingeqn(
+                alpha, np.array([bmin, bmax]), self.ip.mgammadeg, order)
+            # target lambda
+            target_lam = np.linspace(
+                target_lam.min(), target_lam.max(), len(target_beta))
+            # gamma, lambda grid
+            mlam, mgam = np.meshgrid(target_lam, gamma_grid[:, 0])
+            # gamma, beta grid
+            mbeta = self.calc_beta_gratingeqn(alpha, mlam, mgam, order)
+            # beta, in pix
+            mbeta -= target_beta.min()
+            mbeta /= target_beta.max() - target_beta.min()
+            mbeta *= len(target_beta)
+            # gamma, in pix
+            mgam -= gamma_grid.min()
+            mgam /= gamma_grid.max() - gamma_grid.min()
+            mgam *= len(gamma_grid[:, 0])
+            # new array
+            xform = np.zeros((2, *(mgam.shape)), dtype=float)
+            xform[0, :, :] = mgam
+            xform[1, :, :] = mbeta
+            xforms[wl] = (target_lam, xform)
+        self.xforms = xforms
         print('Done.')
+
+    def calc_beta_gratingeqn(self, alpha: Numeric, lam: Numeric, gamma: Numeric, order: int) -> Numeric:
+        """Calulates β using the grating equation \n λ = σ(sinγ)/m * (sinα + sinβ) 
+        Args:
+            alpha (float): angle of incidence perpendicluar to groves, α [Degrees (0-360) or Radians(0-2π)].
+            lam (float): Wavelength, λ.
+            gamma (float): angle of incidence parallel to groves,γ [Degrees (0-360) or Radians(0-2π)]. 
+            order (int): diffraction order, m.
+
+        Returns:
+            float: Wavelength, λ.
+        """
+        return np.arcsin((order * lam / self.sigma / np.sin(gamma * np.pi / 180)) - np.sin(alpha * np.pi / 180)) * 180 / np.pi
 
     def calc_lamda_gratingeqn(self, alpha: Numeric, beta: Numeric, gamma: Numeric, order: int) -> Numeric:
         """Calulates λ using the grating equation \n λ = σ(sinγ)/m * (sinα + sinβ) 
@@ -47,11 +120,11 @@ class MapPixel2Wl:
         Returns:
             float: Wavelength, λ.
         """
-        alpha = correct_unit_of_angle(alpha, "rad")  # noqa: F405
-        beta = correct_unit_of_angle(beta, "rad")
-        gamma = correct_unit_of_angle(gamma, "rad")
+        # alpha = correct_unit_of_angle(alpha, "rad")  # noqa: F405
+        # beta = correct_unit_of_angle(beta, "rad")
+        # gamma = correct_unit_of_angle(gamma, "rad")
 
-        return (self.sigma/order)*np.sin(gamma)*(np.sin(alpha)+np.sin(beta))
+        return (self.sigma/order)*np.sin(gamma*np.pi/180)*(np.sin(alpha*np.pi/180)+np.sin(beta*np.pi/180))
 
     def calc_resolution_gratingeqn(self, alpha: Numeric, beta: Numeric, gamma: Numeric, slitwidth: Numeric, wl: Numeric) -> Numeric:
         """ Calulates spectral resolution of hms given the slitwidth at wavelength λ using the grating equation: \n Δλ = λ*B*cos(β)*[sin(γ)]^(-1) * [sin(α) + sin(β)]^(-1) 
@@ -66,12 +139,9 @@ class MapPixel2Wl:
         Returns:
             float: spectral resolution [nm] 
         """
-        alpha = correct_unit_of_angle(alpha, 'rad')
-        beta = correct_unit_of_angle(beta, 'rad')
-        gamma = correct_unit_of_angle(gamma, 'rad')
         wl = wl*1e-9  # nm -> m
         slitwidth = slitwidth * 1e-6  # microns -> m
-        return (wl*slitwidth*np.cos(beta)/np.sin(gamma) * (np.sin(alpha) + np.sin(beta))**(-1))*1e9
+        return (wl*slitwidth*np.cos(beta*np.pi/180)/np.sin(gamma*np.pi/180) * (np.sin(alpha*np.pi/180) + np.sin(beta*np.pi/180))**(-1))*1e9
 
     def get_gamma_grid(self) -> np.ndarray:
         """ calculates angle of incidence parallel to grooves for all pixel postions.
@@ -170,7 +240,7 @@ class MapPixel2Wl:
         Returns:
             list[float]: wavelegth array of shape totalpix X totalpix
         """
-        return list(map(self.calc_lamda_gratingeqn, self.alphagrid, self.betagrid, self.gammagrid, self.ordergrid))
+        return self.calc_lamda_gratingeqn(self.alphagrid, self.betagrid, self.gammagrid, self.ordergrid)
 
     def get_resolution_grid(self, slitwidth: Numeric) -> list[float]:
         """Calculate spectral resolution for all pixel postions.
@@ -183,7 +253,9 @@ class MapPixel2Wl:
         """
         b = np.empty_like(self.alphagrid)
         b.fill(slitwidth)
-        return list(map(self.calc_resolution_gratingeqn, self.alphagrid, self.betagrid, self.gammagrid, b, self.lambdagrid))
+        if self.lambdagrid is None:
+            self.lambdagrid = self.get_lambda_grid()
+        return self.calc_resolution_gratingeqn(self.alphagrid, self.betagrid, self.gammagrid, b, self.lambdagrid)
 
     def get_wlpanel_idx(self, wl: int, value_grid: np.ndarray) -> tuple[np.array, np.array]:
         """ find idices corresponding to the wavelength (int, A). Used to find the pixels that correspond to single ROI or panel.
@@ -231,8 +303,6 @@ class MapPixel2Wl:
             tuple[np.ndarray, np.ndarray, np.array]: straighted img, input image, wavelength-array of straighted img. 
         """
         wl = int(wavelength*10)
-        # extract panel of calcluated lambdas (Modeled)
-        wl_grid = self.extract_wlpanel(wl, self.lambdagrid)
 
         if rotate_deg is None:
             rotate_deg = self.ip.img_rot
@@ -250,30 +320,15 @@ class MapPixel2Wl:
                     img, rotate_deg, cval=np.nan, preserve_range=True)
                 curved_img_grid = self.extract_wlpanel(wl, img)
                 cbarlabel = 'Intensity [ADU]'
-            else:  # if file does not exists, straighten model wl_grid
-                curved_img_grid = wl_grid
-                cbarlabel = 'Wavelength [nm]'
+            else:
+                raise ValueError('No image available')
         else:
             raise ValueError('img must be a 2D array or str img path.')
 
-        # Chose the target wl array closest to beta = 90 deg to straighted img against.
-        rows, cols = np.shape(wl_grid)
-        gamma_grid = self.extract_wlpanel(wl, self.gammagrid)
-        gidx, _ = find_nearest(gamma_grid[:, 50], self.ip.mgammadeg)
-        target_arr = wl_grid[gidx, :]
-        target_wls = target_arr
-        # target_wls = np.linspace(np.nanmin(target_arr), np.nanmax(target_arr), cols)
-
-        # straighten img
-        straight_img = []
-        for k in range(rows):
-            current_row = wl_grid[k]
-            corrected_row = np.array([np.nan]*np.shape(current_row)[0])
-            for idx, val in enumerate(current_row):
-                newidx, _ = find_nearest(target_wls, val)
-                # newidx = np.nanargmin(np.abs(target_wls-val))
-                corrected_row[newidx] = curved_img_grid[k, idx]
-            straight_img.append(corrected_row)
+        # get the inverse transform
+        target_wls, xform = self.xforms[wl]
+        output = transform.warp(curved_img_grid, xform, cval=np.nan)
+        straight_img = output
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(12, 6))
@@ -308,12 +363,50 @@ class MapPixel2Wl:
 
         return np.array(straight_img), np.array(curved_img_grid), np.array(target_wls)
 
-# %%
-# predictor = HMS_ImagePredictor('bo',67.39,50)
-# # %%
-# mapping = MapPixel2Wl(predictor)
 
-# #%%
+# %%
+# predictor = HMS_ImagePredictor(
+#     '/home/charmi/Projects/hitmis_analysis/hmspython/hmspython/Utils/hmsa_aurora_slittest.json', 67.455, 50, mgammadeg=89.95, pix=3008)
+# %%
+# mapping = MapPixel2Wl(predictor)
+# %%
+# fnames = glob('../../../Origins/2024-10-22_11_40_39Z/*.fit*')
+# impath = fnames[1]
+# with pf.open(impath) as hdul:
+#     data = hdul[0].data.astype(np.float64)
+
+# #resize img
+# IMGSIZE = 1024
+# scale_factor = (IMGSIZE / data.shape[0], IMGSIZE / data.shape[1])
+# data = transform.rescale(data, scale_factor, order=3)
+# rotate img
+# data = transform.rotate(data,-0.4)
+
+ # %%
+# img = predictor.plot_spectral_lines('Detector', True, wls=[
+#                                     557.7, 630.0, 427.8, 777.4, 486.1, 656.3, 486.1], mosaic=True, measurement=True, fprime=442.7)
+# vmin = np.percentile(data, 1)
+# vmax = np.percentile(data, 99)
+# plt.imshow(data, cmap='pink', vmin=vmin, vmax=vmax)
+# plt.colorbar()
+
+# %%
+# Straighten img
+# wl = 486.1
+# simg, img, wlaxis = mapping.straighten_img(
+#     wavelength=wl, img=data, rotate_deg=-0.2)
+# %%
+# plot a bigger version of straightened img
+# vmin = np.nanpercentile(simg, 1)
+# vmax = np.nanpercentile(simg, 99)
+
+# fig = plt.figure(dpi=1200)
+# plt.imshow(simg, vmin=vmin, vmax=vmax, aspect='auto')
+# plt.axvline(find_nearest(wlaxis, wl)[0], color='white', linewidth=0.5)
+# plt.axvline(300, color='white', linewidth=0.5)
+# plt.colorbar()
+# plt.title(f'{wl} nm')
+# %%
 # fdir = 'Images/hmsA_img/20240829/*.fits'
 # fnames = glob(fdir)
 # fnames.sort()

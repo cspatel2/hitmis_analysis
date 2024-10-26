@@ -55,7 +55,7 @@ parser.add_argument('--wl',
 args = parser.parse_args()
 prefix = args.prefix
 config = args.config
-
+hdulidx = 1 ###### fits file img saved in hdul[0] or hdul[1]?
 # %% Get all subdirs
 
 
@@ -80,7 +80,7 @@ def list_all_dirs(root):
 # **************** This function gets replaced based on the files maybe?
 def getctime(fn):  # get timestamp from .fits file
     with fits.open(fn) as hdul:
-        header = hdul[1].header
+        header = hdul[hdulidx].header
     return (int(header['TIMESTAMP']))
 
 # %%
@@ -128,7 +128,7 @@ print('Last image:', end_date)
 print('\n')
 
 with fits.open(flist[0]) as hdul:
-    header = hdul[1].header
+    header = hdul[hdulidx].header
     tempstr = 'CCD-TEMP'
     if tempstr not in list(header.keys()):
         tempstr = tempstr.replace('-', '')
@@ -195,7 +195,7 @@ for wl in wlarr_nm:
         # 3. Process Images
         for fidx, fn in enumerate(tqdm(current_files)):
             with fits.open(fn) as hdul:
-                header = hdul[1].header
+                header = hdul[hdulidx].header
                 tstamp = int(header['TIMESTAMP'])  # ms -> s
                 tstamps.append(tstamp)
                 times.append(_time.time_from_tstamp(tstamp))  # datetime object
@@ -221,7 +221,7 @@ for wl in wlarr_nm:
                 camtemps.append(float(header[tempstr]))  # degrees Celcius
 
                 # 1. get img
-                data = np.asarray(hdul[1].data, dtype=float)  # counts
+                data = np.asarray(hdul[hdulidx].data, dtype=float)  # counts
 
                 # #2. dark/bais correct img
                 # data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts

@@ -2,11 +2,11 @@
     "SysParam": {
         "hmsVersion": "A-ORIGIN",
         "FlCollimator": 400,
-        "FlPrimeCamera": 443.401,
+        "FlPrimeCamera": 442.7,
         "SlitLengthmm": 55.29,
         "SlitLengthdeg": 7.8698411725696245,
         "sigma": 10125.5569,
-        "relSlitPositionmm": 30,
+        "relSlitPositionmm": 29,
         "SlitA2FarEdgemm": 58.35,
         "SlitA2CloseEdgemm": 5.850000000000001,
         "MosaicWidthmm": 52.5,
@@ -35,8 +35,8 @@
             "PanelLetter": "b",
             "PanelWindowWidthmm": 8,
             "PanelWidthmm": 8,
-            "PanelWindowHeightmm": 25.02,
-            "PanelHeightmm": 27.919999999999998
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
         },
         "6300": {
             "wl": 630.0,
@@ -46,8 +46,8 @@
             "PanelLetter": "c",
             "PanelWindowWidthmm": 7.5,
             "PanelWidthmm": 7.5,
-            "PanelWindowHeightmm": 25.02,
-            "PanelHeightmm": 27.919999999999998
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
         },
         "7774": {
             "wl": 777.4,
@@ -57,8 +57,8 @@
             "PanelLetter": "a",
             "PanelWindowWidthmm": 25.89467768,
             "PanelWidthmm": 28.57467768,
-            "PanelWindowHeightmm": 25.02,
-            "PanelHeightmm": 27.919999999999998
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
         },
         "4278": {
             "wl": 427.8,
@@ -68,8 +68,8 @@
             "PanelLetter": "d",
             "PanelWindowWidthmm": 17.5,
             "PanelWidthmm": 8.125322321111753,
-            "PanelWindowHeightmm": 25.02,
-            "PanelHeightmm": 27.919999999999998
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
         },
         "6563": {
             "wl": 656.3,
@@ -77,8 +77,8 @@
             "SlitNum": 3,
             "DiffractionOrder": 29,
             "PanelLetter": "f",
-            "PanelWindowWidthmm": 23.89467768,
-            "PanelWidthmm": 26.57467768,
+            "PanelWindowWidthmm": 24.89467768,
+            "PanelWidthmm": 27.57467768,
             "PanelWindowHeightmm": 25.02,
             "PanelHeightmm": 26.96
         },
@@ -88,8 +88,8 @@
             "SlitNum": 4,
             "DiffractionOrder": 39,
             "PanelLetter": "e",
-            "PanelWindowWidthmm": 25.625322321111753,
-            "PanelWidthmm": 25.625322321111753,
+            "PanelWindowWidthmm": 24.625322321111753,
+            "PanelWidthmm": 24.625322321111753,
             "PanelWindowHeightmm": 25.02,
             "PanelHeightmm": 26.96
         }

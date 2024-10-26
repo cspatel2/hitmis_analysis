@@ -194,7 +194,7 @@ hmsAOrigin_ParamDict = {
     'SlitLengthmm': 55.29,
     'SlitLengthdeg': np.rad2deg(np.arctan(55.29/400)),
     'sigma': 10125.5569,
-    'relSlitPositionmm': 25,
+    'relSlitPositionmm': ,
     'SlitA2FarEdgemm': 58.35,
     'SlitA2CloseEdgemm': 58.35 -52.50,
     'MosaicWidthmm':52.50,

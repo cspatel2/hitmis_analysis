@@ -74,8 +74,8 @@ print(len(fnames))
 predictor = HMS_ImagePredictor('a',67.43,50,mgammadeg=90-.05,pix = 1024)
 
 #open file
-fn = fnames[392]
-# fn = fnames[20]
+# fn = fnames[392]
+fn = fnames[20]
 print(fn)
 with fits.open(fn) as hdul:
     data = hdul[1].data
