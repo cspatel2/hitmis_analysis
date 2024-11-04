@@ -1,24 +1,25 @@
 {
+    "system": "SlitTest",
     "SysParam": {
-        "hmsVersion": "A-ORIGIN",
+        "hmsVersion": "A",
         "FlCollimator": 400,
-        "FlPrimeCamera": 442.7,
+        "FlPrimeCamera": 443.401,
         "SlitLengthmm": 55.29,
         "SlitLengthdeg": 7.8698411725696245,
         "sigma": 10125.5569,
-        "relSlitPositionmm": 29,
-        "SlitA2FarEdgemm": 58.35,
-        "SlitA2CloseEdgemm": 5.850000000000001,
+        "relSlitPositionmm": 25,
+        "SlitA2FarEdgemm": 62.98,
+        "SlitA2CloseEdgemm": 10.48 ,
         "MosaicWidthmm": 52.5,
         "MosaicHeightmm": 55.19,
         "MosaicWindowWidthmm": 49.52,
         "MosaicWindowHeightmm": 50.05,
         "MosaicFilters": [
             [
-                "7774",
+                "4278",
                 "6300",
                 "5577",
-                "4278"
+                "7774"
             ],
             [
                 "6563",
@@ -31,54 +32,54 @@
             "wl": 557.7,
             "color": "green",
             "SlitNum": 2,
-            "DiffractionOrder": 34,
+            "DiffractionOrder": 33,
             "PanelLetter": "b",
-            "PanelWindowWidthmm": 8,
-            "PanelWidthmm": 8,
-            "PanelWindowHeightmm": 24.82,
-            "PanelHeightmm": 27.719999999999998
+            "PanelWindowWidthmm": 10.1,
+            "PanelWidthmm": 10.1,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
         },
         "6300": {
             "wl": 630.0,
             "color": "Red",
             "SlitNum": 2,
-            "DiffractionOrder": 30,
+            "DiffractionOrder": 29,
             "PanelLetter": "c",
-            "PanelWindowWidthmm": 7.5,
-            "PanelWidthmm": 7.5,
-            "PanelWindowHeightmm": 24.82,
-            "PanelHeightmm": 27.719999999999998
+            "PanelWindowWidthmm": 9.7,
+            "PanelWidthmm": 9.7,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
         },
         "7774": {
             "wl": 777.4,
             "color": "plum",
-            "SlitNum": 2,
+            "SlitNum": 1,
             "DiffractionOrder": 24,
             "PanelLetter": "a",
-            "PanelWindowWidthmm": 25.89467768,
-            "PanelWidthmm": 28.57467768,
-            "PanelWindowHeightmm": 24.82,
-            "PanelHeightmm": 27.719999999999998
+            "PanelWindowWidthmm": 12.22,
+            "PanelWidthmm": 12.22,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
         },
         "4278": {
             "wl": 427.8,
             "color": "blue",
             "SlitNum": 1,
-            "DiffractionOrder": 45,
+            "DiffractionOrder": 43,
             "PanelLetter": "d",
             "PanelWindowWidthmm": 17.5,
-            "PanelWidthmm": 8.125322321111753,
-            "PanelWindowHeightmm": 24.82,
-            "PanelHeightmm": 27.719999999999998
+            "PanelWidthmm": 20.18,
+            "PanelWindowHeightmm": 25.02,
+            "PanelHeightmm": 27.919999999999998
         },
         "6563": {
             "wl": 656.3,
             "color": "Darkred",
             "SlitNum": 3,
-            "DiffractionOrder": 29,
+            "DiffractionOrder": 28,
             "PanelLetter": "f",
-            "PanelWindowWidthmm": 24.89467768,
-            "PanelWidthmm": 27.57467768,
+            "PanelWindowWidthmm": 18.83,
+            "PanelWidthmm": 21.509999999999998,
             "PanelWindowHeightmm": 25.02,
             "PanelHeightmm": 26.96
         },
@@ -86,10 +87,10 @@
             "wl": 486.1,
             "color": "cyan",
             "SlitNum": 4,
-            "DiffractionOrder": 39,
+            "DiffractionOrder": 38,
             "PanelLetter": "e",
-            "PanelWindowWidthmm": 24.625322321111753,
-            "PanelWidthmm": 24.625322321111753,
+            "PanelWindowWidthmm": 30.69,
+            "PanelWidthmm": 30.69,
             "PanelWindowHeightmm": 25.02,
             "PanelHeightmm": 26.96
         }

@@ -1,0 +1,78 @@
+{
+    "SysParam": {
+        "hmsVersion": "MISHIT",
+        "FlCollimator": 200,
+        "FlPrimeCamera": 220,
+        "SlitLengthmm": 20,
+        "SlitLengthdeg": 5.725,
+        "sigma": 3164.55696203,
+        "relSlitPositionmm": 15,
+        "SlitA2FarEdgemm": 60,
+        "SlitA2CloseEdgemm": 7.5,
+        "MosaicWidthmm": 50.8,
+        "MosaicHeightmm": 55,
+        "MosaicWindowWidthmm": 50,
+        "MosaicWindowHeightmm": 50,
+        "MosaicFilters": [
+            [
+                "4278",
+                "6300",
+                "5577",
+                "7774"
+            ]
+        ]
+    },
+    "WlParam": {
+        "5577": {
+            "wl": 557.7,
+            "color": "green",
+            "SlitNum": 2,
+            "DiffractionOrder": 33,
+            "PanelLetter": "b",
+            "PanelWindowWidthmm": 10.1,
+            "PanelWidthmm": 10.1,
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
+        },
+        "6300": {
+            "wl": 630.0,
+            "color": "Red",
+            "SlitNum": 2,
+            "DiffractionOrder": 29,
+            "PanelLetter": "c",
+            "PanelWindowWidthmm": 9.7,
+            "PanelWidthmm": 9.7,
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
+        },
+        "7774": {
+            "wl": 777.4,
+            "color": "plum",
+            "SlitNum": 1,
+            "DiffractionOrder": 24,
+            "PanelLetter": "a",
+            "PanelWindowWidthmm": 12.22,
+            "PanelWidthmm": 12.22,
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
+        },
+        "4278": {
+            "wl": 427.8,
+            "color": "blue",
+            "SlitNum": 1,
+            "DiffractionOrder": 43,
+            "PanelLetter": "d",
+            "PanelWindowWidthmm": 17.5,
+            "PanelWidthmm": 20.18,
+            "PanelWindowHeightmm": 24.82,
+            "PanelHeightmm": 27.719999999999998
+        }
+    },
+    "InstParam": {
+        "alpha": 66,
+        "max_ord": 15,
+        "mgamma_deg": 90,
+        "imgsz": 1024,
+        "imgrot": 0.1
+    }
+}

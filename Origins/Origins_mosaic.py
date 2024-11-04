@@ -13,7 +13,7 @@ from hmspython.Utils._Utility import *
 from tqdm import tqdm
 
 # %%
-predictor = HMS_ImagePredictor('hmsa_origin.json', 71, 50, mgammadeg=90-.05, pix=1024)
+predictor = HMS_ImagePredictor(config'/home/charmi/Projects/Hitmis/hmsdesigner/configs/hmsa_origin.toml')
 # img = predictor.plot_spectral_lines('MosaicWindow', True, wls=[
 #                                     557.7, 630.0, 427.8, 784.1, 777.4, 486.1, 485, 656.3, 656.8, 644, 786.0, 782.1, 780.8, 652.2, 654.4, 653.3], mosaic=True, measurement=True)
 # plt.axhline(predictor.g0, linewidth=.5, linestyle='--', color='orange')

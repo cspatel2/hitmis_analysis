@@ -1,0 +1,336 @@
+# %% Includes
+import argparse
+from datetime import datetime, timedelta
+import lzma
+import os
+import pickle
+import sys
+from astropy.utils.diff import difflib
+import matplotlib.pyplot as plt
+import numpy as np
+from hmsdesigner._ImgPredictor import HMS_ImagePredictor 
+from hmsdesigner._Pixel2wlMapping import MapPixel2Wl 
+from hmspython.Utils import _files
+from hmspython.Utils import _Utility
+from hmspython.Utils import _time
+from glob import glob
+import astropy.io.fits as fits
+import xarray as xr
+from tqdm import tqdm
+import skimage.transform as transform
+# %%
+# %% Paths
+# rootdir = '/home/charmi/Projects/hitmis_analysis/data/hms1_EclipseRaw/EclipseDay/'
+PATH = os.path.dirname(os.path.realpath(__file__))
+
+# %% Argument Parser
+parser = argparse.ArgumentParser(
+    description='Convert HiT&MIS L0 data to L1 data, with exposure normalization and Dark subtraction. It  using HMS_ImgPredictor()(hmspython.Diffraction._ImgPredictor) and  MapPixel2WL() (from hmspython.Diffraction._Pixel2wlMapping) to extact ROI and performs line straightening. This program will not work without hmsParams.pkl and hmsWlParams.pkl present.')
+# %% Add arguments
+parser.add_argument('config',
+                    metavar='config',
+                    type=str,
+                    help='Instrument configuration JSON file'
+                    )
+parser.add_argument('rootdir',
+                    metavar='rootdir',
+                    type=str,
+                    help='Root directory containing HiT&MIS data')
+parser.add_argument('dest',
+                    nargs='?',
+                    default=os.getcwd(),
+                    help='Root directory where L1 data will be stored')
+parser.add_argument('prefix',
+                    nargs='?',
+                    default=None,
+                    help='Prefix of final L1 data file name.')
+parser.add_argument('--wl',
+                    required=False,
+                    default=None,
+                    type=float,
+                    help='Wavelength to process')
+parser.add_argument('--flat',
+                    required=False,
+                    default=None,
+                    type=str,
+                    help='FITS file to use as flat-field')
+
+# %% Change for each observation type before running
+
+args = parser.parse_args()
+prefix = args.prefix
+config = args.config
+
+if args.flat is not None:
+    with fits.open(args.flat) as flathdu:
+        flatdata = flathdu[0].data
+else:
+    flatdata = None
+
+hdulidx = 0 ###### fits file img saved in hdul[0] or hdul[1]?
+timestr = 'DATE-OBS' # UTC start date of observation
+
+def gt(dt_str):
+    dt, _, us = dt_str.partition(".")
+    dt = datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
+    us = int(us.rstrip("Z"), 10)
+    return dt + timedelta(microseconds=us)
+
+# %% Get all subdirs
+
+
+def list_all_dirs(root):
+    flist = os.listdir(root)
+    # print(flist)
+    out = []
+    subdirFound = False
+    for f in flist:
+        if os.path.isdir(root + '/' + f):
+            subdirFound = True
+            out += list_all_dirs(root + '/' + f)
+    if not subdirFound:
+        out.append(root)
+    return out
+
+
+# def getctime(fname):
+#     words = fname.rstrip('.fit').split('_')
+#     return int(words[-1])
+
+# **************** This function gets replaced based on the files maybe?
+def getctime(fn):  # get timestamp from .fits file
+    with fits.open(fn) as hdul:
+        header = hdul[hdulidx].header
+    return gt(header[timestr])
+
+# %%
+
+
+# 1. Get files ##################################################3
+
+# Get Root directory
+rootdir = args.rootdir
+if not os.path.isdir(rootdir):
+    print('ERROR: Specified root directory for L0 data does not exist.')
+    sys.exit()
+destdir = args.dest
+if os.path.exists(destdir) and os.path.isfile(destdir):
+    print('ERROR: Specified destination directory is a file.')
+    sys.exit()
+else:
+    os.makedirs(destdir, exist_ok=True)
+# Get list of all directories within root directory
+dirlist = list_all_dirs(rootdir)
+# get list of .fit files in all directories sorted by ucttime
+filelist = []
+for d in dirlist:
+    if d is not None:
+        f = glob(d+'/*.fit*')
+        f.sort(key=getctime)
+        filelist.append(f)
+# flatten list of files
+flat_filelist = []
+for f in filelist:
+    for img in f:
+        flat_filelist.append(img)
+
+print(f'Number of fits files to process: {len(flat_filelist)}')
+if len(flat_filelist) == 0:
+    raise ValueError('No .fit* files in provided rootdir.')
+
+flist = flat_filelist
+flist.sort(key=getctime)
+# Get timeframe
+start_date = getctime(flist[0])
+end_date = getctime(flist[-1])
+print('First image:', start_date)
+print('Last image:', end_date)
+print('\n')
+
+with fits.open(flist[0]) as hdul:
+    header = hdul[hdulidx].header
+    tempstr = 'CCD-TEMP'
+    if tempstr not in list(header.keys()):
+        tempstr = tempstr.replace('-', '')
+    del hdul
+#############################################################
+
+# 2. Initialize ############################################
+
+# intialize model
+predictor = HMS_ImagePredictor(config)
+if prefix is None:
+    prefix = predictor.hmsVersion
+IMGSIZE = predictor.pix
+# Initialize wl
+wlarr_str = _Utility.flatten_list(
+    predictor.hmsParamDict['MosaicFilters'])  # wl in str(Angstrom)
+wlarr_nm = [int(x)/10 for x in wlarr_str]  # wl in float(nm)
+
+wl = args.wl
+if wl is not None:
+    wl_str = str(int(wl*10))
+    if wl_str not in wlarr_str:  # wl in str(Angstrom)
+        raise ValueError(f'Invalid wl, must be one of the following: {wlarr_nm}')
+    wlarr_nm = [wl]
+
+
+for wl in wlarr_nm:
+    wl_str = f'{int(wl*10)}'
+    print(f'Processing ROI: {wl} nm')
+
+    # Inititalize wlmapper
+    mapping = MapPixel2Wl(predictor)
+
+    # Initialize Dark data dict
+    # darkPATH = '../hitmis_pipeline/pixis_dark_bias.xz'
+    # with lzma.open(darkPATH, 'rb') as dfile:
+    #     darkDict = pickle.load(dfile)
+
+    # each nc file should contain frames from midnight to midnight
+    current_start_time = datetime(
+        start_date.year, start_date.month, start_date.day, 0, 0, 0)
+    print(f'current start time: = {current_start_time}')
+
+    while current_start_time <= end_date:
+
+        yymmdd = int(current_start_time.strftime("%Y%m%d"))
+        outfname = f"{prefix}_{yymmdd}_{wl_str}.nc"
+        if os.path.exists(os.path.join(destdir, outfname)):
+            print(f'{outfname} already exists. skipping.')
+            current_start_time = current_end_time
+            continue
+
+        current_end_time = current_start_time + timedelta(days=1)
+        print(f'current end time: = {current_end_time}')
+
+        # Initialize varirable arrays to fill
+        tstamps, times, exposures, gains, camtemps = [], [], [], [], []
+        simgs = []  # straightened imgs
+
+        current_files = [file for file in flist if current_start_time <= getctime(file) <= current_end_time]
+        print(len(current_files))
+
+        # 3. Process Images
+        for fidx, fn in enumerate(tqdm(current_files)):
+            with fits.open(fn) as hdul:
+                header = hdul[hdulidx].header
+                tstamp = (gt(header[timestr])).timestamp()
+                # tstamp = int(header[timestr])  # ms -> s
+                tstamps.append(tstamp)
+                # times.append(_time.time_from_tstamp(tstamp))  # datetime object
+
+                # get Exposure
+                expstr = difflib.get_close_matches('EXPOSURE', list(header))[0]
+                if '_US' in expstr:
+                    TO_SEC = 1e-6
+                    exposure = int(header[expstr])*TO_SEC  # ms -> s
+                elif '_MS' in expstr:
+                    TO_SEC = 1e-3
+                    exposure = int(header[expstr])*TO_SEC  # ms -> s
+                else:
+                    TO_SEC = 1
+                    exposure = int(header[expstr])*TO_SEC
+                    # hdrcomm = np.asarray(header.comments)
+                    # exp_ns = header[np.where(
+                    #     hdrcomm == 'Exposure time (ns)')[0][0]]
+                    # TO_SEC = 1e-9
+                    # exp_s = header[np.where(hdrcomm == 'Exposure time (s)')[0][0]]
+                    # exposure = exp_s + (exp_ns*TO_SEC)
+
+                exposures.append(exposure)
+                gains.append(header['GAIN'])
+                camtemps.append(float(header[tempstr]))  # degrees Celcius
+
+                # 1. get img
+                data = np.asarray(hdul[hdulidx].data, dtype=float)  # counts
+                # 1a. Do flat field
+                if flatdata is not None:
+                    data /= flatdata
+
+                # #2. dark/bais correct img
+                # data -= darkDict['bias'] + (darkDict['dark']*exposure) #counts
+
+                # 3. crop and resize img to IMGSIZE
+                if np.shape(data) != (IMGSIZE, IMGSIZE):
+                    scale_factor = (
+                        IMGSIZE / data.shape[0], IMGSIZE / data.shape[1])
+                    data = transform.rescale(data, scale_factor, order=3)
+                    # data = transform.zoom(data, zoom_factor, order=3)
+
+                # 4. total counts -> counts/sec
+                data = data/exposure
+
+                # 5. straighten ROI within img
+                simg, img, wlax = mapping.straighten_img(
+                    wavelength=wl, img=data, plot=False)
+                simgs.append(simg)  # counts; shape(fidx, IMGSIZE, IMGSIZE)
+
+                # 6. Save wlaxis (reference axis that the img is straighted to.)
+                if fidx == 0:
+                    wlaxis = wlax
+                    pix_y = np.arange(np.shape(simg)[0])
+
+        # 4. Create Dataset and Save
+        createdtime = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
+        attr_time = str(createdtime) + ' EST'
+        ds = xr.Dataset(
+            data_vars=dict(
+                img=(("tstamp", "pix_y", "wavelength"), np.asarray(simgs, dtype=float),
+                    {'Description': 'Dark-subtracted straightened images',
+                    'units': 'ADU/nm/s'
+                    })
+            ),
+            coords=dict(
+                tstamp=("tstamp", np.asarray(tstamps, dtype=float),
+                        {'Description': 'timestamp',
+                        'units': 's'
+                        }),
+                wavelength=("wavelength", np.asarray(wlaxis, dtype=float),
+                            {'Description': 'Reference wavelength [x]axis that img is straighted with.',
+                            'units': 'nm'
+                            }),
+                pix_y=("pix_y", np.asarray(pix_y, dtype=int),
+                    {'Description': 'Detector Pixel Position in Y [rows] ',
+                        'units': 'Pixel Postion Y'
+                        }),
+                gain=('tstamp', np.asarray(gains, dtype=int),
+                    {'Description': 'Camera gain',
+                    'units': 'electrons/ADU'
+                    }),
+                exposure=('tstamp', np.asarray(exposures, dtype=float),
+                        {'Description': 'Exposure time of img',
+                        'units': 's'
+                        }),
+                camtemp=('tstamp', np.asarray(camtemps, dtype=int),
+                        {'Description': 'Camera temperature',
+                        'units': 'Degree Celsius'
+                        }),
+                # time = ('tstamp', np.asarray(times,dtype='datetime64[ns]'),
+                #           {'Description': 'Time as datetime',
+                #            'units': 'UTC'
+                #            })
+            ),
+            attrs=dict(Instrument=predictor.hmsVersion,
+                    ROI=f'{str(wl)} nm',
+                    CreationDate=attr_time
+                    ))
+
+        # destdir = args.dest
+
+        print('Saving %s...\t' % (outfname), end='')
+        sys.stdout.flush()
+        # ds.to_netcdf(os.path.join(destdir,outfname))
+        encoding = {
+            k: {'zlib': True} for k in list(ds.data_vars.keys()) + list(ds.coords.keys())
+        }
+        ds.to_netcdf(os.path.join(destdir, outfname), encoding = encoding)
+
+        print(f'Saved .nc file for: {yymmdd}')
+        current_start_time = current_end_time
+
+# %%
+# ds = xr.open_dataset('Aurora_20241005_5577.nc')
+# # %%
+# ds
+# %%
